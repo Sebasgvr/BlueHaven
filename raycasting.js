@@ -1,116 +1,74 @@
 function lanzarRayo(angulo) {
+  const dirX = cos(angulo);
+  const dirY = sin(angulo);
 
-    const direccionX = cos(angulo);
-    const direccionY = sin(angulo);
+  let celdaX = floor(jugador.posicion.x / TAMAÑO_CELDA);
+  let celdaY = floor(jugador.posicion.y / TAMAÑO_CELDA);
 
-    let celdaX = floor(jugador.posicion.x / tamanoCelda);
-    let celdaY = floor(jugador.posicion.y / tamanoCelda);
+  const pasoX = dirX < 0 ? -1 : 1;
+  const pasoY = dirY < 0 ? -1 : 1;
 
-    const pasoX = direccionX < 0 ? -1 : 1;
-    const pasoY = direccionY < 0 ? -1 : 1;
+  const deltaX = dirX === 0 ? Infinity : abs(1 / dirX);
+  const deltaY = dirY === 0 ? Infinity : abs(1 / dirY);
 
-    const distanciaX = direccionX === 0
-        ? Infinity
-        : abs(1 / direccionX);
+  let siguienteX =
+    dirX < 0
+      ? (jugador.posicion.x / TAMAÑO_CELDA - celdaX) * deltaX
+      : (celdaX + 1 - jugador.posicion.x / TAMAÑO_CELDA) * deltaX;
 
-    const distanciaY = direccionY === 0
-        ? Infinity
-        : abs(1 / direccionY);
+  let siguienteY =
+    dirY < 0
+      ? (jugador.posicion.y / TAMAÑO_CELDA - celdaY) * deltaY
+      : (celdaY + 1 - jugador.posicion.y / TAMAÑO_CELDA) * deltaY;
 
-    let siguienteX;
-    let siguienteY;
+  let distancia = 0;
+  let lado = 0;
 
-    if (direccionX < 0) {
-
-        siguienteX =
-            (jugador.posicion.x / tamanoCelda - celdaX)
-            * distanciaX;
-
+  for (let i = 0; i < 200; i++) {
+    if (siguienteX < siguienteY) {
+      distancia = siguienteX;
+      siguienteX += deltaX;
+      celdaX += pasoX;
+      lado = 0;
     } else {
-
-        siguienteX =
-            (celdaX + 1 - jugador.posicion.x / tamanoCelda)
-            * distanciaX;
+      distancia = siguienteY;
+      siguienteY += deltaY;
+      celdaY += pasoY;
+      lado = 1;
     }
 
-    if (direccionY < 0) {
-
-        siguienteY =
-            (jugador.posicion.y / tamanoCelda - celdaY)
-            * distanciaY;
-
-    } else {
-
-        siguienteY =
-            (celdaY + 1 - jugador.posicion.y / tamanoCelda)
-            * distanciaY;
+    if (
+      celdaX < 0 ||
+      celdaY < 0 ||
+      celdaX >= MAPA_ANCHO ||
+      celdaY >= MAPA_ALTO
+    ) {
+      return null;
     }
 
-    let distancia = 0;
-    let lado = 0;
+    if (MAPA[celdaY][celdaX] === 1) {
+      const distanciaReal = distancia * TAMAÑO_CELDA;
 
-    while (distancia < 100) {
+      let punto;
+      if (lado === 0) {
+        punto = jugador.posicion.y + distancia * TAMAÑO_CELDA * dirY;
+      } else {
+        punto = jugador.posicion.x + distancia * TAMAÑO_CELDA * dirX;
+      }
 
-        if (siguienteX < siguienteY) {
+      let texturaX = (punto % TAMAÑO_CELDA) / TAMAÑO_CELDA;
+      if (texturaX < 0) texturaX += 1;
 
-            distancia = siguienteX;
-            siguienteX += distanciaX;
-            celdaX += pasoX;
+      if (lado === 0 && dirX > 0) texturaX = 1 - texturaX;
+      if (lado === 1 && dirY < 0) texturaX = 1 - texturaX;
 
-            lado = 0;
-
-        } else {
-
-            distancia = siguienteY;
-            siguienteY += distanciaY;
-            celdaY += pasoY;
-
-            lado = 1;
-        }
-
-        if (
-            celdaX < 0 ||
-            celdaY < 0 ||
-            celdaY >= mapa.length ||
-            celdaX >= mapa[celdaY].length
-        ) {
-            return null;
-        }
-
-        if (mapa[celdaY][celdaX] === 1) {
-
-            const distanciaReal =
-                distancia * tamanoCelda;
-
-            let punto;
-
-            if (lado === 0) {
-
-                punto =
-                    jugador.posicion.y +
-                    distanciaReal * direccionY;
-
-            } else {
-
-                punto =
-                    jugador.posicion.x +
-                    distanciaReal * direccionX;
-            }
-
-            let texturaX =
-                (punto % tamanoCelda) / tamanoCelda;
-
-            if (texturaX < 0) {
-                texturaX += 1;
-            }
-
-            return {
-                distancia: distanciaReal,
-                texturaX: texturaX,
-                lado: lado
-            };
-        }
+      return {
+        distancia: distanciaReal,
+        texturaX: texturaX,
+        lado: lado,
+      };
     }
+  }
 
-    return null;
+  return null;
 }
