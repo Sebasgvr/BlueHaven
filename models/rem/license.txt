@@ -1,0 +1,11 @@
+Model Information:
+* title:	PhotoCatch Test - Rem Figure
+* source:	https://sketchfab.com/3d-models/photocatch-test-rem-figure-7bcc16a6abd5428a82f13ec6af7e8b0d
+* author:	小編米奇 (https://sketchfab.com/mickey9801)
+
+Model License:
+* license type:	CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+* requirements:	Author must be credited. No commercial use.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "PhotoCatch Test - Rem Figure" (https://sketchfab.com/3d-models/photocatch-test-rem-figure-7bcc16a6abd5428a82f13ec6af7e8b0d) by 小編米奇 (https://sketchfab.com/mickey9801) licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)

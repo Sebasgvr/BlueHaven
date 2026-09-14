@@ -15,6 +15,16 @@ const MAPA = [
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ];
 
+// Objetos 3D estáticos del mapa (posición en píxeles de mundo)
+const OBJETOS = [
+  {
+    x: TAMAÑO_CELDA * 8.5,
+    y: TAMAÑO_CELDA * 8.5,
+    escala: 1,       // ajustá esto según el tamaño real del .obj
+    rotacionY: 0,       // radianes, si el modelo mira para el lado equivocado
+  },
+];
+
 const MAPA_ANCHO = MAPA[0].length;
 const MAPA_ALTO = MAPA.length;
 
