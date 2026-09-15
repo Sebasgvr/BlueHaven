@@ -4,16 +4,17 @@ const TIENDA = {
   camara: null,
   renderizador: null,
   modelo: null,
+  objetoMundo: null,
   canvas: null,
   cargada: false,
-  anchoColision: TAMAÑO_CELDA * 1.35,
-  profundidadColision: TAMAÑO_CELDA * 0.9,
-  centroPantallaX: 240,
+  anchoColision: TAMAÑO_CELDA * 1.25,
+  profundidadColision: TAMAÑO_CELDA * 1.1,
   altoPantalla: 210,
 };
 
 function tiendaInicializar() {
-  TIENDA.posicion = createVector(TAMAÑO_CELDA * 9.5, TAMAÑO_CELDA * 5.5);
+  // Mueve la tienda cambiando estas coordenadas de columna y fila.
+  TIENDA.posicion = createVector(TAMAÑO_CELDA * 9, TAMAÑO_CELDA * 10);
   TIENDA.canvas = document.createElement("canvas");
   TIENDA.canvas.width = 320;
   TIENDA.canvas.height = 240;
@@ -78,43 +79,51 @@ function tiendaColisiona(posicion) {
 
   const mitadAncho = TIENDA.anchoColision / 2;
   const mitadProfundidad = TIENDA.profundidadColision / 2;
-  const diferenciaY = posicion.y - TIENDA.posicion.y;
-  if (diferenciaY > 0) return false;
 
   return (
-    Math.abs(posicion.x - TIENDA.posicion.x) < mitadAncho &&
-    Math.abs(posicion.y - TIENDA.posicion.y) < mitadProfundidad
+    Math.abs(posicion.x - TIENDA.posicion.x) <= mitadAncho &&
+    Math.abs(posicion.y - TIENDA.posicion.y) <= mitadProfundidad
   );
 }
 
-function tiendaDibujar() {
-  if (!TIENDA.cargada) return;
+function crearObjetoTienda3D() {
+  if (!TIENDA.posicion || !escena3D) return;
 
-  const deltaX = TIENDA.posicion.x - jugador.posicion.x;
-  const deltaY = TIENDA.posicion.y - jugador.posicion.y;
-  const distancia = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-  let diferencia = Math.atan2(deltaY, deltaX) - jugador.angulo;
+  const cargadorOBJ = new THREE.OBJLoader();
+  cargadorOBJ.load(
+    "models/tienda/source/Tienda_02.obj",
+    (modelo) => {
+      const textura = new THREE.TextureLoader().load(
+        "models/tienda/textures/Tienda_02_initialShadingGroup_BaseColor.10.png",
+      );
+      textura.colorSpace = THREE.SRGBColorSpace;
 
-  while (diferencia > Math.PI) diferencia -= TWO_PI;
-  while (diferencia < -Math.PI) diferencia += TWO_PI;
-  if (Math.abs(diferencia) > jugador.fov * 0.62) return;
+      modelo.traverse((objeto) => {
+        if (!objeto.isMesh) return;
+        objeto.material = new THREE.MeshStandardMaterial({
+          map: textura,
+          roughness: 0.82,
+          metalness: 0,
+          side: THREE.DoubleSide,
+        });
+      });
 
-  const pared = lanzarRayo(jugador.angulo + diferencia);
-  if (pared && pared.distancia < distancia - TAMAÑO_CELDA * 0.4) return;
+      const caja = new THREE.Box3().setFromObject(modelo);
+      const centro = caja.getCenter(new THREE.Vector3());
+      const tamaño = caja.getSize(new THREE.Vector3());
+      const escala = (TAMAÑO_CELDA * 1.8) / Math.max(tamaño.x, tamaño.y, tamaño.z);
 
-  TIENDA.renderizador.render(TIENDA.escena, TIENDA.camara);
-
-  const alto = TIENDA.altoPantalla;
-  const ancho = alto * (TIENDA.canvas.width / TIENDA.canvas.height);
-
-  const contexto = pantallaJuego.drawingContext;
-  contexto.save();
-  contexto.drawImage(
-    TIENDA.canvas,
-    TIENDA.centroPantallaX - ancho / 2,
-    ALTO_JUEGO / 2 - alto / 2,
-    ancho,
-    alto,
+      modelo.position.sub(centro);
+      modelo.scale.setScalar(escala);
+      modelo.rotation.y = Math.PI;
+      modelo.position.set(TIENDA.posicion.x, 0, TIENDA.posicion.y);
+      escena3D.add(modelo);
+      TIENDA.objetoMundo = modelo;
+    },
+    undefined,
+    (error) => console.error("No se pudo cargar la tienda 3D:", error),
   );
-  contexto.restore();
 }
+
+window.crearObjetoTienda3D = crearObjetoTienda3D;
+

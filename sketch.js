@@ -1,261 +1,255 @@
 const ANCHO_JUEGO = 480;
-const ALTO_JUEGO = 270;
+const ALTO_JUEGO  = 270;
 
 let jugador;
-
-let texturaPared;
-let texturaCielo;
-let texturaPisos;
-
-let pantallaJuego;
-
-let datosPisos;
-let anchoPisos;
-let bufferPiso;
-
-let modeloTienda;
-let texturaTienda;
-let bufferModelos;
-let zBuffer;
+let sistemaCaptura;
 
 let escena3D;
 let camara3D;
 let renderizador3D;
-let cargandoTexturas3D;
+let ratonBloqueado = false;
+let cañaPesca;
+let grupoAnzuelo;
+let lineaPesca;
+let anzueloPesca;
+let anzueloLanzado = false;
+let estadoLanzamiento = "reposo";
+let progresoLanzamiento = 0;
+let tiempoEnAgua = 0;
+let esperaMordida = 0;
+let lanzamientoCaeEnAgua = false;
+let puntaCaña = new THREE.Vector3(0.12, -0.22, -0.72);
 
 function preload() {
-  texturaPared = loadImage("textures/pared.png");
-  texturaCielo = loadImage("textures/cielo.png");
-  texturaPisos = loadImage("assets/sprites/pisos/FloorTiles.png");
-
-  // Poné el .obj y el .mtl/textura en una carpeta "modelos/" de tu proyecto
-  modeloTienda = loadModel("models/tienda/store.obj", true);
-  texturaTienda = loadImage(
-    "models/tienda/textures/Tienda_02_initialShadingGroup_BaseColor.10.png",
-  );
 }
 
 function setup() {
-  const canvasJuego = createCanvas(windowWidth, windowHeight);
-  canvasJuego.elt.style.display = "none";
+  createCanvas(windowWidth, windowHeight);
+  clear();
   pixelDensity(1);
-  noSmooth();
+  const interfaz = document.querySelector("canvas");
+  interfaz.style.position = "fixed";
+  interfaz.style.inset = "0";
+  interfaz.style.zIndex = "2";
+  interfaz.style.pointerEvents = "none";
 
-  pantallaJuego = createGraphics(ANCHO_JUEGO, ALTO_JUEGO);
-  pantallaJuego.noSmooth();
+    jugador = new Jugador(
+        TAMAÑO_CELDA * 7.5,
+        TAMAÑO_CELDA * 5.5
+    );
 
-  const offCanvas = document.createElement("canvas");
-  offCanvas.width = texturaPisos.width;
-  offCanvas.height = texturaPisos.height;
-  const offCtx = offCanvas.getContext("2d");
-  offCtx.drawImage(texturaPisos.canvas, 0, 0);
-  datosPisos = offCtx.getImageData(
-    0,
-    0,
-    offCanvas.width,
-    offCanvas.height,
-  ).data;
-  anchoPisos = offCanvas.width;
-
-  bufferPiso = pantallaJuego.drawingContext.createImageData(
-    ANCHO_JUEGO,
-    ALTO_JUEGO / 2,
-  );
-
-  // ...(tu código existente de pisos)...
-
-  zBuffer = new Array(ANCHO_JUEGO).fill(Infinity);
-
-  bufferModelos = createGraphics(ANCHO_JUEGO, ALTO_JUEGO, WEBGL);
-  bufferModelos.noStroke();
-
-  texturaPared.loadPixels();
-  jugador = new Jugador(TAMAÑO_CELDA * 7.5, TAMAÑO_CELDA * 5.5);
-
-  texturaPared.loadPixels();
-
-  jugador = new Jugador(TAMAÑO_CELDA * 7.5, TAMAÑO_CELDA * 5.5);
-  tiendaInicializar();
-  remInicializar();
-
+    sistemaCaptura = new SistemaCaptura();
+    tiendaInicializar();
   inicializarEscena3D();
 }
 
 function draw() {
-  jugador.actualizar();
-  actualizarCamara3D();
-  renderizador3D.render(escena3D, camara3D);
-}
-function dibujarObjetos3D() {
-  bufferModelos.clear();
-  bufferModelos.push();
+  clear();
 
-  // FOV vertical equivalente al horizontal que ya usás
-  const aspecto = ANCHO_JUEGO / ALTO_JUEGO;
-  const fovV = 2 * Math.atan(Math.tan(jugador.fov / 2) / aspecto);
-  bufferModelos.perspective(fovV, aspecto, 5, 5000);
-
-  // Cámara alineada con el jugador (X mundo -> X, Y mundo -> Z, altura -> Y)
-  const dirX = cos(jugador.angulo);
-  const dirY = sin(jugador.angulo);
-  bufferModelos.camera(0, 0, 0, dirX, 0, dirY, 0, 1, 0);
-
-  for (const obj of OBJETOS) {
-    const relX = obj.x - jugador.posicion.x;
-    const relZ = obj.y - jugador.posicion.y;
-    obj._distancia = Math.hypot(relX, relZ);
-
-    bufferModelos.push();
-    bufferModelos.translate(relX, TAMAÑO_CELDA / 2, relZ);
-    if (obj.rotacionY) bufferModelos.rotateY(obj.rotacionY);
-    bufferModelos.scale(obj.escala);
-    bufferModelos.texture(texturaTienda);
-    bufferModelos.model(modeloTienda);
-    bufferModelos.pop();
-  }
-
-  bufferModelos.pop();
-}
-
-function componerObjetos3D() {
-  if (OBJETOS.length === 0) return;
-
-  let distanciaMasCercana = Infinity;
-  for (const obj of OBJETOS) {
-    distanciaMasCercana = Math.min(distanciaMasCercana, obj._distancia);
-  }
-
-  const ctx = pantallaJuego.drawingContext;
-  const bufCanvas = bufferModelos.canvas;
-
-  for (let x = 0; x < ANCHO_JUEGO; x++) {
-    if (distanciaMasCercana < zBuffer[x]) {
-      ctx.drawImage(bufCanvas, x, 0, 1, ALTO_JUEGO, x, 0, 1, ALTO_JUEGO);
+    if (sistemaCaptura.estado === 'inactivo') {
+        jugador.actualizar();
     }
-  }
-}
-function renderizarEscena() {
-  dibujarCielo();
-  dibujarSuelo();
-  dibujarObjetos3D(); // renderiza el modelo en el buffer WEBGL (todavía no se ve)
-  dibujarParedes();   // dibuja paredes y llena zBuffer
-  componerObjetos3D(); // pega el modelo encima, solo donde no lo tapa una pared
-}
 
-function dibujarCielo() {
-  pantallaJuego.image(texturaCielo, 0, 0, ANCHO_JUEGO, ALTO_JUEGO / 2);
-}
+    actualizarCamara3D();
+    actualizarLanzamientoAnzuelo();
+    actualizarCañaPesca();
+    renderizador3D.render(escena3D, camara3D);
 
-function dibujarSuelo() {
-  const buf = bufferPiso.data;
-  const altoBuf = ALTO_JUEGO / 2;
-  const horizonte = ALTO_JUEGO / 2;
+    sistemaCaptura.actualizar();
+    sistemaCaptura.dibujar();
 
-  const halfFovTan = Math.tan(jugador.fov / 2);
-  const dirX = Math.cos(jugador.angulo);
-  const dirY = Math.sin(jugador.angulo);
-  const planoX = -dirY * halfFovTan;
-  const planoY = dirX * halfFovTan;
-
-  const rayIzqX = dirX - planoX;
-  const rayIzqY = dirY - planoY;
-  const rayDerX = dirX + planoX;
-  const rayDerY = dirY + planoY;
-
-  const posX = jugador.posicion.x / TAMAÑO_CELDA;
-  const posY = jugador.posicion.y / TAMAÑO_CELDA;
-
-  for (let filaLocal = 0; filaLocal < altoBuf; filaLocal++) {
-    const dist = filaLocal + 1;
-    const rowDist = horizonte / dist;
-
-    const pasoX = (rowDist * (rayDerX - rayIzqX)) / ANCHO_JUEGO;
-    const pasoY = (rowDist * (rayDerY - rayIzqY)) / ANCHO_JUEGO;
-
-    let mundoX = posX + rowDist * rayIzqX;
-    let mundoY = posY + rowDist * rayIzqY;
-
-    for (let x = 0; x < ANCHO_JUEGO; x++) {
-      const celdaX = Math.floor(mundoX);
-      const celdaY = Math.floor(mundoY);
-
-      let columna = COL_PASTO;
-      if (
-        celdaX >= 0 &&
-        celdaY >= 0 &&
-        celdaX < MAPA_ANCHO &&
-        celdaY < MAPA_ALTO
-      ) {
-        const tipo = MAPA[celdaY][celdaX];
-        columna = tipo !== 1 ? obtenerColumnaSprite(tipo) : COL_PASTO;
-      }
-
-      const texX =
-        Math.floor((mundoX - celdaX) * TAMANO_TILE) & (TAMANO_TILE - 1);
-      const texY =
-        Math.floor((mundoY - celdaY) * TAMANO_TILE) & (TAMANO_TILE - 1);
-
-      const idxTex = (texY * anchoPisos + columna * TAMANO_TILE + texX) * 4;
-      const idxBuf = (filaLocal * ANCHO_JUEGO + x) * 4;
-
-      buf[idxBuf] = datosPisos[idxTex];
-      buf[idxBuf + 1] = datosPisos[idxTex + 1];
-      buf[idxBuf + 2] = datosPisos[idxTex + 2];
-      buf[idxBuf + 3] = 255;
-
-      mundoX += pasoX;
-      mundoY += pasoY;
+    if (sistemaCaptura.estado === 'inactivo' && cercaDelAgua()) {
+        dibujarIndicadorPesca();
     }
-  }
 
-  pantallaJuego.drawingContext.putImageData(bufferPiso, 0, ALTO_JUEGO / 2);
+    if (ratonBloqueado) dibujarPuntero();
 }
 
-function dibujarParedes() {
-  const distanciaFocal = ANCHO_JUEGO / 2 / tan(jugador.fov / 2);
-
-  for (let x = 0; x < ANCHO_JUEGO; x++) {
-    const camX = (2 * x) / ANCHO_JUEGO - 1;
-    const anguloRayo = jugador.angulo + atan(camX * tan(jugador.fov / 2));
-
-    const resultado = lanzarRayo(anguloRayo);
-    if (resultado === null) continue;
-
-    const distanciaPerp =
-      resultado.distancia * cos(anguloRayo - jugador.angulo);
-
-    zBuffer[x] = distanciaPerp; // <-- nuevo
-
-    const alturaPared = (TAMAÑO_CELDA / distanciaPerp) * distanciaFocal;
-
-    const centroY = ALTO_JUEGO / 2;
-    const arriba = centroY - alturaPared / 2;
-    const abajo = centroY + alturaPared / 2;
-
-    dibujarFranjaPared(x, arriba, abajo, resultado.texturaX, resultado.lado);
-  }
+function mouseMoved(evento) {
+  moverCamaraConMouse(evento);
 }
 
-function dibujarFranjaPared(x, arriba, abajo, texturaX, lado) {
-  const posU = floor(texturaX * texturaPared.width);
+function moverCamaraConMouse(evento) {
+  if (!ratonBloqueado || sistemaCaptura.estado !== 'inactivo') return;
 
-  pantallaJuego.copy(
-    texturaPared,
-    posU,
-    0,
-    1,
-    texturaPared.height,
-    x,
-    arriba,
-    1,
-    abajo - arriba,
+  jugador.girarMouse(evento.movementX);
+  jugador.mirarMouse(-evento.movementY);
+}
+
+  function dibujarPuntero() {
+    const cx = width / 2;
+    const cy = height / 2;
+
+    stroke(255, 255, 255, 220);
+    strokeWeight(2);
+    line(cx - 9, cy, cx - 3, cy);
+    line(cx + 3, cy, cx + 9, cy);
+    line(cx, cy - 9, cx, cy - 3);
+    line(cx, cy + 3, cx, cy + 9);
+    noStroke();
+  }
+
+function cercaDelAgua() {
+    const cx = Math.floor(jugador.posicion.x / TAMAÑO_CELDA);
+    const cy = Math.floor(jugador.posicion.y / TAMAÑO_CELDA);
+  return (
+    cx >= 0 &&
+    cy >= 0 &&
+    cx < MAPA_ANCHO &&
+    cy < MAPA_ALTO &&
+    MAPA[cy][cx] === 3
   );
+}
 
-  if (lado === 1) {
-    pantallaJuego.fill(0, 0, 0, 80);
-    pantallaJuego.noStroke();
-    pantallaJuego.rect(x, arriba, 1, abajo - arriba);
+function dibujarIndicadorPesca() {
+    const pulso = (sin(frameCount * 0.08) + 1) / 2;
+
+    fill(0, 0, 0, 135);
+    noStroke();
+    rect(width / 2 - 115, height * 0.85 - 20, 230, 36, 8);
+
+    fill(255, 240, 100, 185 + pulso * 70);
+    textAlign(CENTER, CENTER);
+    textSize(16);
+    text('[F]  Pescar', width / 2, height * 0.85 - 2);
+    textAlign(LEFT, BASELINE);
+
+}
+
+function keyPressed() {
+    if (keyCode === ESCAPE) {
+      cancelarPesca();
+      return false;
+    }
+    if ((key === 'f' || key === 'F') && sistemaCaptura.estado === 'inactivo' && cercaDelAgua()) {
+    if (estadoLanzamiento === "reposo") {
+      sistemaCaptura.iniciar(random(PECES_CAPTURA));
+    }
+    return false;
+    }
+    if (keyCode === 32) {
+      if (sistemaCaptura.estado === 'inactivo') {
+        jugador.saltar();
+      } else {
+        sistemaCaptura.presionarBoton();
+      }
+        return false;
+    }
+}
+
+function keyReleased() {
+    if (keyCode === 32) {
+        sistemaCaptura.soltarBoton();
+        return false;
+    }
+}
+
+function mousePressed() {
+    if (sistemaCaptura.estado !== 'inactivo') {
+        sistemaCaptura.presionarBoton();
+    }
+}
+
+function mouseReleased() {
+    if (sistemaCaptura.estado !== 'inactivo') {
+        sistemaCaptura.soltarBoton();
+    }
+}
+
+function controlarClicEscena() {
+  if (sistemaCaptura.estado !== 'inactivo') {
+    sistemaCaptura.presionarBoton();
+    return;
   }
+
+  if (estadoLanzamiento === "reposo") iniciarLanzamientoAnzuelo();
+  else if (estadoLanzamiento === "en_agua" || estadoLanzamiento === "esperando") retraerAnzuelo();
+  renderizador3D.domElement.requestPointerLock();
+}
+
+function cancelarPesca() {
+  if (
+    sistemaCaptura.estado === "inactivo" &&
+    estadoLanzamiento === "reposo"
+  ) return;
+
+  anzueloLanzado = false;
+  estadoLanzamiento = "reposo";
+  progresoLanzamiento = 0;
+  tiempoEnAgua = 0;
+  esperaMordida = 0;
+  lanzamientoCaeEnAgua = false;
+  sistemaCaptura.estado = "inactivo";
+  sistemaCaptura.botonPresionado = false;
+  actualizarCañaPesca();
+}
+
+function iniciarLanzamientoAnzuelo() {
+  lanzamientoCaeEnAgua = calcularImpactoEnAgua();
+  anzueloLanzado = true;
+  estadoLanzamiento = "lanzando";
+  progresoLanzamiento = 0;
+  tiempoEnAgua = 0;
+  esperaMordida = 0;
+}
+
+function calcularImpactoEnAgua() {
+  const direccion = new THREE.Vector3();
+  camara3D.getWorldDirection(direccion);
+  if (direccion.y >= -0.05) return false;
+
+  const distancia = -camara3D.position.y / direccion.y;
+  if (distancia <= 0 || distancia > TAMAÑO_CELDA * 20) return false;
+
+  const impacto = camara3D.position.clone().add(direccion.multiplyScalar(distancia));
+  const columna = Math.floor(impacto.x / TAMAÑO_CELDA);
+  const fila = Math.floor(impacto.z / TAMAÑO_CELDA);
+  return (
+    fila >= 0 &&
+    columna >= 0 &&
+    fila < MAPA_ALTO &&
+    columna < MAPA_ANCHO &&
+    MAPA[fila][columna] === 3
+  );
+}
+
+function retraerAnzuelo() {
+  anzueloLanzado = false;
+  estadoLanzamiento = "reposo";
+  progresoLanzamiento = 0;
+  tiempoEnAgua = 0;
+  esperaMordida = 0;
+  lanzamientoCaeEnAgua = false;
+  sistemaCaptura.estado = "inactivo";
+  actualizarCañaPesca();
+}
+
+function actualizarLanzamientoAnzuelo() {
+  const dt = Math.min(deltaTime / 1000, 0.05);
+  if (estadoLanzamiento === "lanzando") {
+    progresoLanzamiento = Math.min(1, progresoLanzamiento + dt * 1.35);
+    if (progresoLanzamiento >= 1) {
+      if (lanzamientoCaeEnAgua) {
+        estadoLanzamiento = "en_agua";
+        esperaMordida = random(2, 6);
+      } else {
+        estadoLanzamiento = "retrayendo";
+      }
+    }
+  } else if (estadoLanzamiento === "retrayendo") {
+    progresoLanzamiento = Math.max(0, progresoLanzamiento - dt * 2.4);
+    if (progresoLanzamiento === 0) retraerAnzuelo();
+  } else if (estadoLanzamiento === "en_agua") {
+    tiempoEnAgua += dt;
+    if (tiempoEnAgua >= esperaMordida) {
+      estadoLanzamiento = "esperando";
+      sistemaCaptura.iniciar(random(PECES_CAPTURA));
+    }
+  }
+}
+
+function actualizarEstadoRaton() {
+  ratonBloqueado = document.pointerLockElement === renderizador3D.domElement;
 }
 
 function inicializarEscena3D() {
@@ -263,17 +257,25 @@ function inicializarEscena3D() {
   camara3D = new THREE.PerspectiveCamera(
     66,
     windowWidth / windowHeight,
-    1,
+    0.01,
     TAMAÑO_CELDA * 40,
   );
+  camara3D.rotation.order = "YXZ";
   renderizador3D = new THREE.WebGLRenderer({ antialias: false });
   renderizador3D.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderizador3D.setSize(windowWidth, windowHeight);
   renderizador3D.outputEncoding = THREE.sRGBEncoding;
   renderizador3D.domElement.style.position = "fixed";
   renderizador3D.domElement.style.inset = "0";
+  renderizador3D.domElement.style.zIndex = "1";
   renderizador3D.domElement.style.imageRendering = "pixelated";
   document.body.appendChild(renderizador3D.domElement);
+  renderizador3D.domElement.addEventListener("pointerdown", controlarClicEscena);
+  renderizador3D.domElement.addEventListener("mouseup", () => {
+    if (sistemaCaptura.estado !== "inactivo") sistemaCaptura.soltarBoton();
+  });
+  document.addEventListener("pointerlockchange", actualizarEstadoRaton);
+  document.addEventListener("mousemove", moverCamaraConMouse);
 
   escena3D.add(new THREE.HemisphereLight(0xbfe9ff, 0x42633c, 1.8));
   const sol = new THREE.DirectionalLight(0xfff0c7, 2.4);
@@ -305,39 +307,293 @@ function inicializarEscena3D() {
         );
         pared.position.set(x, TAMAÑO_CELDA / 2, z);
         escena3D.add(pared);
-      } else {
+      } else if (MAPA[fila][columna] !== 2 && MAPA[fila][columna] !== 3) {
         escena3D.add(crearBaldosaSuelo(cargador, MAPA[fila][columna], x, z));
       }
     }
   }
 
+  crearBordeLago();
+  crearSuperficieLago();
+
+  cargarTiendaEnEscena();
+  cargarCañaPesca();
+}
+
+function cargarCañaPesca() {
+  cañaPesca = new THREE.Group();
+  cañaPesca.position.set(0, 0, 0);
+  cañaPesca.rotation.set(0, 0, 0);
+  cañaPesca.visible = true;
+  escena3D.add(cañaPesca);
+  grupoAnzuelo = new THREE.Group();
+  escena3D.add(grupoAnzuelo);
+
+  const cargador = new THREE.GLTFLoader();
+  cargador.load(
+    "models/fishing_rod/scene.gltf",
+    (resultado) => {
+      const modelo = resultado.scene;
+      const caja = new THREE.Box3().setFromObject(modelo);
+      const centro = caja.getCenter(new THREE.Vector3());
+      const tamaño = caja.getSize(new THREE.Vector3());
+      const escala = 3.5 / Math.max(tamaño.x, tamaño.y, tamaño.z);
+
+      modelo.position.sub(centro);
+      modelo.scale.setScalar(escala);
+      modelo.position.set(6, -0.8, 6);
+      modelo.rotation.set(0.4, 0.2, 0.5);
+      modelo.traverse((objeto) => {
+        if (!objeto.isMesh || !objeto.material) return;
+        objeto.material.side = THREE.DoubleSide;
+        objeto.material.depthTest = false;
+        objeto.material.needsUpdate = true;
+      });
+      modelo.renderOrder = 20;
+      cañaPesca.add(modelo);
+    },
+    undefined,
+    (error) => console.error("No se pudo cargar la caña:", error),
+  );
+
+  const geometriaLinea = new THREE.BufferGeometry().setFromPoints(
+    Array.from({ length: 9 }, () => puntaCaña.clone()),
+  );
+  lineaPesca = new THREE.Line(
+    geometriaLinea,
+    new THREE.LineBasicMaterial({ color: 0xf5f2dd, transparent: true, opacity: 0.9 }),
+  );
+  lineaPesca.visible = false;
+  grupoAnzuelo.add(lineaPesca);
+
+  anzueloPesca = new THREE.Mesh(
+    new THREE.TorusGeometry(0.035, 0.009, 6, 12, Math.PI * 1.55),
+    new THREE.MeshStandardMaterial({ color: 0xd8d8d8, metalness: 0.8, roughness: 0.25 }),
+  );
+  anzueloPesca.rotation.set(0.5, 0, 0);
+  anzueloPesca.visible = false;
+  grupoAnzuelo.add(anzueloPesca);
+
+}
+
+function actualizarCañaPesca() {
+  if (!cañaPesca || !lineaPesca || !anzueloPesca) return;
+
+  camara3D.updateMatrixWorld(true);
+  const desplazamiento = new THREE.Vector3(3.0, -3.0, -1.4);
+  desplazamiento.applyQuaternion(camara3D.quaternion);
+  cañaPesca.position.copy(camara3D.position).add(desplazamiento);
+  cañaPesca.quaternion.copy(camara3D.quaternion);
+  cañaPesca.rotateZ(-0.18);
+  grupoAnzuelo.position.copy(camara3D.position);
+  grupoAnzuelo.quaternion.copy(camara3D.quaternion);
+
+  const pescando = sistemaCaptura.estado !== "inactivo";
+  cañaPesca.visible = true;
+  lineaPesca.visible = anzueloLanzado;
+  anzueloPesca.visible = anzueloLanzado;
+
+  const progreso = estadoLanzamiento === "lanzando"
+    ? progresoLanzamiento
+    : anzueloLanzado
+      ? 1
+      : 0;
+  const tiron = sistemaCaptura.estado === "tiron_fuerte" ? 0.08 : 0;
+  const destino = new THREE.Vector3(0.28, -0.72 - tiron, -3.2);
+  const posicionAnzuelo = puntaCaña.clone().lerp(destino, progreso);
+  const posiciones = lineaPesca.geometry.attributes.position.array;
+  for (let indice = 0; indice < 9; indice++) {
+    const tramo = indice / 8;
+    const punto = puntaCaña.clone().lerp(posicionAnzuelo, tramo);
+    const sag = Math.sin(tramo * Math.PI) * 0.16 * progreso;
+    punto.y -= sag;
+    posiciones[indice * 3] = punto.x;
+    posiciones[indice * 3 + 1] = punto.y;
+    posiciones[indice * 3 + 2] = punto.z;
+  }
+  lineaPesca.geometry.attributes.position.needsUpdate = true;
+  anzueloPesca.position.copy(posicionAnzuelo);
+  if (estadoLanzamiento === "en_agua" || estadoLanzamiento === "esperando") {
+    anzueloPesca.position.y += Math.sin(frameCount * 0.08) * 0.025;
+  }
+  anzueloPesca.rotation.z = Math.sin(frameCount * 0.08) * 0.18;
+}
+
+function crearSuperficieLago() {
+  let minColumna = MAPA_ANCHO;
+  let maxColumna = -1;
+  let minFila = MAPA_ALTO;
+  let maxFila = -1;
+
+  for (let fila = 0; fila < MAPA_ALTO; fila++) {
+    for (let columna = 0; columna < MAPA_ANCHO; columna++) {
+      if (MAPA[fila][columna] !== 3) continue;
+      minColumna = Math.min(minColumna, columna);
+      maxColumna = Math.max(maxColumna, columna);
+      minFila = Math.min(minFila, fila);
+      maxFila = Math.max(maxFila, fila);
+    }
+  }
+
+  if (maxColumna < 0) return;
+
+  const textura = crearTexturaLago();
+  textura.wrapS = THREE.RepeatWrapping;
+  textura.wrapT = THREE.RepeatWrapping;
+  textura.repeat.set(maxColumna - minColumna + 1, maxFila - minFila + 1);
+  textura.magFilter = THREE.LinearFilter;
+  textura.minFilter = THREE.LinearMipMapLinearFilter;
+
+  const ancho = (maxColumna - minColumna + 1) * TAMAÑO_CELDA;
+  const profundidad = (maxFila - minFila + 1) * TAMAÑO_CELDA;
+  const lago = new THREE.Mesh(
+    new THREE.PlaneGeometry(ancho, profundidad),
+    new THREE.MeshStandardMaterial({
+      map: textura,
+      color: 0x68c9d8,
+      emissive: 0x123d55,
+      emissiveIntensity: 0.22,
+      roughness: 0.18,
+      metalness: 0.08,
+      side: THREE.DoubleSide,
+    }),
+  );
+
+  lago.rotation.x = -Math.PI / 2;
+  lago.position.set(
+    ((minColumna + maxColumna + 1) / 2) * TAMAÑO_CELDA,
+    0.04,
+    ((minFila + maxFila + 1) / 2) * TAMAÑO_CELDA,
+  );
+  escena3D.add(lago);
+}
+
+function crearBordeLago() {
+  let minColumna = MAPA_ANCHO;
+  let maxColumna = -1;
+  let minFila = MAPA_ALTO;
+  let maxFila = -1;
+
+  for (let fila = 0; fila < MAPA_ALTO; fila++) {
+    for (let columna = 0; columna < MAPA_ANCHO; columna++) {
+      if (MAPA[fila][columna] !== 3) continue;
+      minColumna = Math.min(minColumna, columna);
+      maxColumna = Math.max(maxColumna, columna);
+      minFila = Math.min(minFila, fila);
+      maxFila = Math.max(maxFila, fila);
+    }
+  }
+
+  if (maxColumna < 0) return;
+
+  const ancho = (maxColumna - minColumna + 3) * TAMAÑO_CELDA;
+  const profundidad = (maxFila - minFila + 3) * TAMAÑO_CELDA;
+  const borde = new THREE.Mesh(
+    new THREE.PlaneGeometry(ancho, profundidad),
+    new THREE.MeshStandardMaterial({
+      map: crearTexturaOrilla(),
+      color: 0xc8996c,
+      roughness: 0.88,
+      metalness: 0,
+      side: THREE.DoubleSide,
+    }),
+  );
+
+  borde.rotation.x = -Math.PI / 2;
+  borde.position.set(
+    ((minColumna + maxColumna + 1) / 2) * TAMAÑO_CELDA,
+    0.012,
+    ((minFila + maxFila + 1) / 2) * TAMAÑO_CELDA,
+  );
+  escena3D.add(borde);
+}
+
+function crearTexturaOrilla() {
+  const lienzo = document.createElement("canvas");
+  lienzo.width = 128;
+  lienzo.height = 128;
+  const contexto = lienzo.getContext("2d");
+
+  contexto.fillStyle = "#c8996c";
+  contexto.fillRect(0, 0, 128, 128);
+  contexto.fillStyle = "rgba(255, 225, 185, 0.18)";
+
+  for (let y = 12; y < 128; y += 25) {
+    for (let x = 10; x < 128; x += 28) {
+      contexto.fillRect(x + ((y / 25) % 2) * 8, y, 14, 4);
+    }
+  }
+
+  const textura = new THREE.CanvasTexture(lienzo);
+  textura.wrapS = THREE.RepeatWrapping;
+  textura.wrapT = THREE.RepeatWrapping;
+  textura.repeat.set(3, 3);
+  textura.colorSpace = THREE.SRGBColorSpace;
+  return textura;
+}
+
+function crearTexturaLago() {
+  const lienzo = document.createElement("canvas");
+  lienzo.width = 128;
+  lienzo.height = 128;
+  const contexto = lienzo.getContext("2d");
+
+  contexto.fillStyle = "#58bfd2";
+  contexto.fillRect(0, 0, 128, 128);
+  contexto.lineWidth = 3;
+  contexto.lineCap = "round";
+
+  for (let fila = 8; fila < 128; fila += 18) {
+    contexto.strokeStyle = fila % 36 === 8 ? "rgba(220, 250, 250, 0.5)" : "rgba(25, 135, 165, 0.32)";
+    contexto.beginPath();
+    for (let x = -8; x <= 136; x += 8) {
+      const y = fila + Math.sin(x * 0.08) * 2;
+      if (x === -8) contexto.moveTo(x, y);
+      else contexto.lineTo(x, y);
+    }
+    contexto.stroke();
+  }
+
+  const textura = new THREE.CanvasTexture(lienzo);
+  textura.colorSpace = THREE.SRGBColorSpace;
+  return textura;
+}
+
+function cargarTiendaEnEscena() {
   const cargadorOBJ = new THREE.OBJLoader();
-  cargadorOBJ.load("models/tienda/source/Tienda_02.obj", (modelo) => {
-    const textura = cargador.load(
-      "models/tienda/textures/Tienda_02_initialShadingGroup_BaseColor.10.png",
-    );
-    textura.colorSpace = THREE.SRGBColorSpace;
-    modelo.traverse((objeto) => {
-      if (objeto.isMesh) {
+  cargadorOBJ.load(
+    "models/tienda/source/Tienda_02.obj",
+    (modelo) => {
+      const textura = new THREE.TextureLoader().load(
+        "models/tienda/textures/Tienda_02_initialShadingGroup_BaseColor.10.png",
+      );
+      textura.colorSpace = THREE.SRGBColorSpace;
+
+      modelo.traverse((objeto) => {
+        if (!objeto.isMesh) return;
         objeto.material = new THREE.MeshStandardMaterial({
           map: textura,
           roughness: 0.82,
           metalness: 0,
           side: THREE.DoubleSide,
         });
-      }
-    });
-    const caja = new THREE.Box3().setFromObject(modelo);
-    const centro = caja.getCenter(new THREE.Vector3());
-    const tamaño = caja.getSize(new THREE.Vector3());
-    modelo.position.sub(centro);
-    modelo.scale.setScalar(
-      (TAMAÑO_CELDA * 1.8) / Math.max(tamaño.x, tamaño.y, tamaño.z),
-    );
-    modelo.position.set(OBJETOS[0].x, 0, OBJETOS[0].y);
-    modelo.rotation.y = OBJETOS[0].rotacionY;
-    escena3D.add(modelo);
-  });
+      });
+
+      const caja = new THREE.Box3().setFromObject(modelo);
+      const centro = caja.getCenter(new THREE.Vector3());
+      const tamaño = caja.getSize(new THREE.Vector3());
+      const escala = (TAMAÑO_CELDA * 1.8) / Math.max(tamaño.x, tamaño.y, tamaño.z);
+
+      modelo.position.sub(centro);
+      modelo.scale.setScalar(escala);
+      modelo.rotation.y = Math.PI;
+      modelo.position.set(TIENDA.posicion.x, 0, TIENDA.posicion.y);
+      escena3D.add(modelo);
+      TIENDA.objetoMundo = modelo;
+    },
+    undefined,
+    (error) => console.error("No se pudo cargar la tienda 3D:", error),
+  );
 }
 
 function crearBaldosaSuelo(cargador, tipo, x, z) {
@@ -349,22 +605,37 @@ function crearBaldosaSuelo(cargador, tipo, x, z) {
   textura.minFilter = THREE.NearestFilter;
   textura.repeat.set(1 / 16, 1);
   textura.offset.set(columna / 16, 0);
+  const material = tipo === 3
+    ? new THREE.MeshStandardMaterial({
+        map: textura,
+        color: 0x4faed0,
+        emissive: 0x123d55,
+        emissiveIntensity: 0.35,
+        roughness: 0.22,
+        metalness: 0.08,
+        side: THREE.DoubleSide,
+      })
+    : new THREE.MeshBasicMaterial({ map: textura, side: THREE.DoubleSide });
   const baldosa = new THREE.Mesh(
     new THREE.PlaneGeometry(TAMAÑO_CELDA, TAMAÑO_CELDA),
-    new THREE.MeshBasicMaterial({ map: textura, side: THREE.DoubleSide }),
+    material,
   );
   baldosa.rotation.x = -Math.PI / 2;
-  baldosa.position.set(x, 0, z);
+  baldosa.position.set(x, tipo === 3 ? 0.04 : 0, z);
   return baldosa;
 }
 
 function actualizarCamara3D() {
-  camara3D.position.set(jugador.posicion.x, TAMAÑO_CELDA * 0.56, jugador.posicion.y);
-  camara3D.rotation.set(0, -jugador.angulo + Math.PI / 2, 0);
+  camara3D.position.set(
+    jugador.posicion.x,
+    TAMAÑO_CELDA * 0.56 + jugador.alturaSalto,
+    jugador.posicion.y,
+  );
+  camara3D.rotation.set(jugador.inclinacion, -jugador.angulo - Math.PI / 2, 0);
 }
 
 function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
+    resizeCanvas(windowWidth, windowHeight);
   camara3D.aspect = windowWidth / windowHeight;
   camara3D.updateProjectionMatrix();
   renderizador3D.setSize(windowWidth, windowHeight);
