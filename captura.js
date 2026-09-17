@@ -1,8 +1,19 @@
 const PECES_CAPTURA = [
-  { nombre: "Carpa", velocidad: 1.0 },
-  { nombre: "Trucha Arcoíris", velocidad: 1.8 },
-  { nombre: "Dragón del Lago", velocidad: 3.0 },
+  { nombre: "Carpa", rareza: 1, velocidad: 1.0 },
+  { nombre: "Trucha Arcoíris", rareza: 2, velocidad: 1.8 },
+  { nombre: "Dragón del Lago", rareza: 3, velocidad: 3.0 },
+  { nombre: "Esturión Gigante", rareza: 4, velocidad: 3.6 },
+  { nombre: "Pez Remo", rareza: 5, velocidad: 4.2 },
 ];
+
+// Cada rareza usa un minijuego distinto.
+const MINIJUEGOS_POR_RAREZA = {
+  1: MinijuegoAnillo,
+  2: MinijuegoBrújula,
+  3: MinijuegoRitmo,
+  4: MinijuegoEsquiva,
+  5: MinijuegoMultietapa,
+};
 
 class SistemaCaptura {
   constructor() {
@@ -17,23 +28,9 @@ class SistemaCaptura {
     this.ventanaTiming = 0.4;
     this.screenshake = 0;
     this.tiempoAnim = 0;
-
-    this.progreso = 0;
-    this.tension = 0;
-    this.posicionPez = 0.5;
-    this.velocidadPez = 0;
-    this.posicionZona = 0.5;
-    this.velocidadZona = 0; // velocidad de la barra verde
-    this.objetivoPez = 0.5;
-    this.timerFinta = 0;
-    this.tamanoZona = 0.25;
-    this.velocidadLlenado = 9.0; // acelera la captura
-    this.aumentoTension = 11.0;
-    this.disminucionTension = 8.0;
-    this.botonPresionado = false;
-    this.tiempoLucha = 0;
-    this.enFaseAdaptacion = true;
     this.progresoLanzamiento = 0;
+
+    this.minijuego = null; // minijuego activo, segun la rareza del pez
   }
 
   iniciar(pez) {
@@ -44,6 +41,7 @@ class SistemaCaptura {
     this.resultadoEnganche = "";
     this.screenshake = 0;
     this.progresoLanzamiento = 0;
+    this.minijuego = null;
   }
 
   presionarBoton() {
@@ -60,12 +58,17 @@ class SistemaCaptura {
       this.estado = "mostrando_resultado";
       this.timerFase = 0.6;
     } else if (this.estado === "lucha") {
-      this.botonPresionado = true;
+      if (this.minijuego) this.minijuego.presionarBoton();
     }
   }
 
   soltarBoton() {
-    this.botonPresionado = false;
+    if (this.minijuego) this.minijuego.soltarBoton();
+  }
+
+  cancelar() {
+    this.estado = "inactivo";
+    this.minijuego = null;
   }
 
   actualizar() {
@@ -81,8 +84,13 @@ class SistemaCaptura {
       case "esperando_mordida":
         this.timerEspera -= dt;
         if (this.timerEspera <= 0) {
-          this.estado = "tiron_suave";
-          this.timerFase = 0.3;
+          if (this.pez && this.pez.rareza <= 1) {
+            // los peces comunes van directo al minijuego, sin enganche previo
+            this._crearMinijuego();
+          } else {
+            this.estado = "tiron_suave";
+            this.timerFase = 0.3;
+          }
         }
         break;
 
@@ -121,7 +129,7 @@ class SistemaCaptura {
             this.resultadoEnganche === "perfecto" ||
             this.resultadoEnganche === "bueno"
           ) {
-            this._iniciarLucha();
+            this._crearMinijuego();
           } else {
             this.estado = "esperando_mordida";
             this.timerEspera = random(6, 14);
@@ -130,7 +138,16 @@ class SistemaCaptura {
         break;
 
       case "lucha":
-        this._actualizarLucha(dt);
+        if (this.minijuego) {
+          this.minijuego.actualizar(dt);
+          if (this.minijuego.resultado) {
+            this.estado = this.minijuego.resultado;
+            this.timerFase = this.estado === "pez_escapado" ? 2.0 : 2.5;
+            this.minijuego = null;
+          }
+        } else {
+          this.estado = "inactivo";
+        }
         break;
 
       case "capturado":
@@ -142,108 +159,11 @@ class SistemaCaptura {
     }
   }
 
-  _iniciarLucha() {
+  _crearMinijuego() {
+    const ClaseMinijuego =
+      MINIJUEGOS_POR_RAREZA[this.pez.rareza] || MinijuegoBrújula;
+    this.minijuego = new ClaseMinijuego(this.pez);
     this.estado = "lucha";
-    this.progreso = 0;
-    this.tension = 0;
-    this.posicionPez = random(0.25, 0.75);
-    this.objetivoPez = this.posicionPez;
-    this.posicionZona = 0.5;
-    this.velocidadZona = 0;
-    this.tiempoLucha = 0;
-    this.enFaseAdaptacion = true;
-    this.botonPresionado = false;
-    this.velocidadPez = 0;
-    this.timerFinta = random(1.5, 3.0);
-  }
-
-  _actualizarLucha(dt) {
-    const mult = this.pez ? this.pez.velocidad : 1.0;
-    this.tiempoLucha += dt;
-
-    if (this.enFaseAdaptacion && this.tiempoLucha > 3)
-      this.enFaseAdaptacion = false;
-
-    this.timerFinta -= dt;
-    if (this.timerFinta <= 0) {
-      this.objetivoPez = random(0.05, 0.95);
-      this.timerFinta = random(0.8, 2.5) / mult;
-    }
-
-    const velBase = this.enFaseAdaptacion ? 0.35 : 1.0;
-    const aceleracion =
-      (this.objetivoPez - this.posicionPez) * velBase * mult * 4;
-    this.velocidadPez += aceleracion * dt;
-    this.velocidadPez *= 0.82;
-    this.posicionPez = constrain(
-      this.posicionPez + this.velocidadPez * dt * 5,
-      0.02,
-      0.98,
-    );
-
-    // Fisicas de la barra: aceleracion hacia arriba o gravedad gradual
-    if (this.botonPresionado) {
-      const fuerzaSubida = 4.8;
-      this.velocidadZona -= fuerzaSubida * dt;
-    } else {
-      const gravedad = 3.2; // aceleracion de caida progresiva
-      this.velocidadZona += gravedad * dt;
-    }
-
-    this.velocidadZona *= 0.98;
-    this.velocidadZona = constrain(this.velocidadZona, -2.4, 2.4);
-    this.posicionZona += this.velocidadZona * dt;
-
-    // Limites y rebote al golpear el fondo
-    const limiteInferior = 1 - this.tamanoZona / 2;
-    const limiteSuperior = this.tamanoZona / 2;
-
-    if (this.posicionZona >= limiteInferior) {
-      this.posicionZona = limiteInferior;
-      if (this.velocidadZona > 0) {
-        const elasticidad = 0.45; // rebota segun que tan rapido cayo
-        this.velocidadZona = -this.velocidadZona * elasticidad;
-        if (abs(this.velocidadZona) < 0.1) this.velocidadZona = 0;
-      }
-    } else if (this.posicionZona <= limiteSuperior) {
-      this.posicionZona = limiteSuperior;
-      if (this.velocidadZona < 0) {
-        this.velocidadZona = 0;
-      }
-    }
-
-    const zonaMin = this.posicionZona - this.tamanoZona / 2;
-    const zonaMax = this.posicionZona + this.tamanoZona / 2;
-    const enZona = this.posicionPez >= zonaMin && this.posicionPez <= zonaMax;
-    const enCentro =
-      abs(this.posicionPez - this.posicionZona) < this.tamanoZona * 0.15;
-
-    if (enZona) {
-      this.progreso = constrain(
-        this.progreso +
-          (enCentro ? this.velocidadLlenado * 2 : this.velocidadLlenado) * dt,
-        0,
-        100,
-      );
-      this.tension = constrain(
-        this.tension - this.disminucionTension * dt,
-        0,
-        100,
-      );
-    } else {
-      this.tension = constrain(this.tension + this.aumentoTension * dt, 0, 100);
-    }
-
-    if (this.progreso >= 100) {
-      this.estado = "capturado";
-      this.timerFase = 2.5;
-    } else if (this.tension >= 100) {
-      this.estado = "linea_rota";
-      this.timerFase = 2.5;
-    } else if (this.tiempoLucha >= 60) {
-      this.estado = "pez_escapado";
-      this.timerFase = 2.0;
-    }
   }
 
   dibujar() {
@@ -256,7 +176,7 @@ class SistemaCaptura {
     translate(shakeX, shakeY);
 
     if (this.estado === "lucha") {
-      this._dibujarLucha();
+      this.minijuego.dibujar();
     } else if (
       this.estado === "capturado" ||
       this.estado === "linea_rota" ||
@@ -352,92 +272,6 @@ class SistemaCaptura {
       textSize(tamMsg);
       text(textoMsg, cx, cy - 63);
     }
-
-    textAlign(LEFT, BASELINE);
-  }
-
-  _dibujarLucha() {
-    // Fondo gris solido para ocultar el mapa 3D durante el minijuego
-    fill(38, 40, 46);
-    noStroke();
-    rect(0, 0, width, height);
-
-    const barAncho = 56;
-    const barAlto = height * 0.62;
-    const barX = width / 2 - barAncho / 2;
-    const barY = height * 0.20;
-
-    // Panel gris oscuro para enmarcar el minijuego
-    fill(24, 26, 30);
-    rect(barX - 75, barY - 50, barAncho + 150, barAlto + 95, 10);
-
-    fill(16, 17, 20);
-    rect(barX, barY, barAncho, barAlto, 6);
-
-    const zonaAlto = barAlto * this.tamanoZona;
-    const zonaY = barY + this.posicionZona * barAlto - zonaAlto / 2;
-    const enZona =
-      this.posicionPez >= this.posicionZona - this.tamanoZona / 2 &&
-      this.posicionPez <= this.posicionZona + this.tamanoZona / 2;
-
-    if (enZona) {
-      const p = (sin(this.tiempoAnim * 6) + 1) / 2;
-      fill(30 + p * 50, 210, 60, 240);
-    } else {
-      fill(35, 160, 55, 180);
-    }
-    rect(barX + 4, zonaY, barAncho - 8, zonaAlto, 4);
-
-    const pezY = barY + this.posicionPez * barAlto;
-    const pezCX = barX + barAncho / 2;
-
-    fill(255, 215, 50);
-    noStroke();
-    ellipse(pezCX, pezY, 36, 22);
-    fill(255, 175, 20);
-    triangle(pezCX + 18, pezY, pezCX + 30, pezY - 10, pezCX + 30, pezY + 10);
-    fill(25, 25, 25);
-    circle(pezCX - 9, pezY - 3, 6);
-    fill(255);
-    circle(pezCX - 10, pezY - 4, 3);
-
-    const progX = barX - 48;
-    fill(16, 17, 20);
-    rect(progX, barY, 24, barAlto, 5);
-    const progH = barAlto * (this.progreso / 100);
-    fill(55, 140, 255);
-    rect(progX + 2, barY + barAlto - progH, 20, progH, 4);
-    fill(180, 215, 255);
-    textAlign(CENTER, CENTER);
-    textSize(11);
-    text(`${floor(this.progreso)}%`, progX + 12, barY - 14);
-    text("PESCA", progX + 12, barY + barAlto + 14);
-
-    const tensX = barX + barAncho + 24;
-    fill(16, 17, 20);
-    rect(tensX, barY, 24, barAlto, 5);
-    const tensH = barAlto * (this.tension / 100);
-    let cTens;
-    if (this.tension < 40) cTens = color(50, 200, 50);
-    else if (this.tension < 70) cTens = color(255, 200, 40);
-    else cTens = color(255, 50, 50);
-    fill(cTens);
-    rect(tensX + 2, barY + barAlto - tensH, 20, tensH, 4);
-    fill(cTens);
-    textAlign(CENTER, CENTER);
-    textSize(11);
-    text(`${floor(this.tension)}%`, tensX + 12, barY - 14);
-    text("TENSIÓN", tensX + 12, barY + barAlto + 14);
-
-    if (this.pez) {
-      fill(255, 220, 100);
-      textSize(17);
-      text(this.pez.nombre, barX + barAncho / 2, barY - 26);
-    }
-
-    fill(190, 200, 215);
-    textSize(12);
-    text("[SPACE] mantener", barX + barAncho / 2, barY + barAlto + 28);
 
     textAlign(LEFT, BASELINE);
   }

@@ -179,8 +179,7 @@ function cancelarPesca() {
   tiempoEnAgua = 0;
   esperaMordida = 0;
   lanzamientoCaeEnAgua = false;
-  sistemaCaptura.estado = "inactivo";
-  sistemaCaptura.botonPresionado = false;
+  sistemaCaptura.cancelar();
   actualizarCañaPesca();
 }
 
@@ -220,7 +219,7 @@ function retraerAnzuelo() {
   tiempoEnAgua = 0;
   esperaMordida = 0;
   lanzamientoCaeEnAgua = false;
-  sistemaCaptura.estado = "inactivo";
+  sistemaCaptura.cancelar();
   actualizarCañaPesca();
 }
 
