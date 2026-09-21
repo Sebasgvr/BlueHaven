@@ -50,7 +50,7 @@ function setup() {
 function draw() {
   clear();
 
-  if (sistemaCaptura.estado === "inactivo") {
+  if (sistemaCaptura.estado === "inactivo" && menuTienda === "cerrado") {
     jugador.actualizar();
   }
 
@@ -63,9 +63,15 @@ function draw() {
   sistemaCaptura.actualizar();
   sistemaCaptura.dibujar();
 
-  if (sistemaCaptura.estado === "inactivo" && cercaDelAgua()) {
-    dibujarIndicadorPesca();
+  if (menuTienda !== "cerrado") {
+    if (menuTienda === "tienda") dibujarPanelVenta();
+    else dibujarPanelInventario();
+  } else if (sistemaCaptura.estado === "inactivo") {
+    if (cercaDelAgua()) dibujarIndicadorPesca();
+    else if (cercaDeTienda()) dibujarIndicadorTienda();
   }
+
+  dibujarHUD();
 
   if (ratonBloqueado) dibujarPuntero();
 }
@@ -106,6 +112,13 @@ function cercaDelAgua() {
   );
 }
 
+function cercaDeTienda() {
+  if (!TIENDA.posicion) return false;
+  return (
+    p5.Vector.dist(jugador.posicion, TIENDA.posicion) <= TAMAÑO_CELDA * 1.9
+  );
+}
+
 function dibujarIndicadorPesca() {
   const pulso = (sin(frameCount * 0.08) + 1) / 2;
 
@@ -122,7 +135,34 @@ function dibujarIndicadorPesca() {
 
 function keyPressed() {
   if (keyCode === ESCAPE) {
+    if (menuTienda !== "cerrado") {
+      cerrarMenu();
+      return false;
+    }
     cancelarPesca();
+    return false;
+  }
+  if (menuTienda !== "cerrado") {
+    const tecla = (key || "").toLowerCase();
+    if (tecla === "b" && menuTienda === "tienda") venderTodos();
+    else if (tecla === "e" || tecla === "i" || tecla === "b") cerrarMenu();
+    return false;
+  }
+  if (key === "i" || key === "I") {
+    if (sistemaCaptura.estado === "inactivo" && estadoLanzamiento === "reposo") {
+      abrirMenuInventario();
+    }
+    return false;
+  }
+  if (key === "e" || key === "E") {
+    if (
+      sistemaCaptura.estado === "inactivo" &&
+      estadoLanzamiento === "reposo" &&
+      cercaDeTienda()
+    ) {
+      if (inventario.length > 0) abrirMenuTienda();
+      else mostrarMensaje("No tenés peces para vender.");
+    }
     return false;
   }
   if (
@@ -171,7 +211,16 @@ function mouseReleased() {
   }
 }
 
-function controlarClicEscena() {
+function controlarClicEscena(evento) {
+  if (menuTienda === "tienda") {
+    manejarClicVenta(evento.clientX, evento.clientY);
+    return;
+  }
+  if (menuTienda === "inventario") {
+    cerrarMenu();
+    return;
+  }
+
   if (sistemaCaptura.estado !== "inactivo") {
     sistemaCaptura.presionarBoton();
     return;

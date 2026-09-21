@@ -166,7 +166,10 @@ class SistemaCaptura {
       case "linea_rota":
       case "pez_escapado":
         this.timerFase -= dt;
-        if (this.timerFase <= 0) this.estado = "inactivo";
+        if (this.timerFase <= 0) {
+          if (this.estado === "capturado") agregarPez(this.pez);
+          this.estado = "inactivo";
+        }
         break;
     }
   }
