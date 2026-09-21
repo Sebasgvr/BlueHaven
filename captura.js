@@ -1,8 +1,11 @@
 const PECES_CAPTURA = [
   { nombre: "Carpa", rareza: 1, velocidad: 1.0 },
   { nombre: "Trucha Arcoíris", rareza: 2, velocidad: 1.8 },
+  { nombre: "Atún", rareza: 2, velocidad: 2.3, sprite: "Atun.png" },
+  { nombre: "Calamar", rareza: 3, velocidad: 3.1, sprite: "Calamar.png" },
   { nombre: "Dragón del Lago", rareza: 3, velocidad: 3.0 },
   { nombre: "Esturión Gigante", rareza: 4, velocidad: 3.6 },
+  { nombre: "Ballena Azul", rareza: 4, velocidad: 4.0, sprite: "Ballena_azul.png" },
   { nombre: "Pez Remo", rareza: 5, velocidad: 4.2 },
 ];
 
@@ -44,7 +47,7 @@ class SistemaCaptura {
     this.minijuego = null;
   }
 
-  presionarBoton() {
+  presionarBoton(entrada) {
     if (
       this.estado === "esperando_mordida" ||
       this.estado === "tiron_suave" ||
@@ -58,7 +61,16 @@ class SistemaCaptura {
       this.estado = "mostrando_resultado";
       this.timerFase = 0.6;
     } else if (this.estado === "lucha") {
-      if (this.minijuego) this.minijuego.presionarBoton();
+      if (this.minijuego) this.minijuego.presionarBoton(entrada);
+    }
+  }
+
+  // Teclas especificas (A/S/D/Z/X/C) para minijuegos de ritmo multi-pista.
+  presionarTecla(tecla, keyCode) {
+    if (this.estado === "lucha" && this.minijuego) {
+      if (this.minijuego.aceptaTeclas()) {
+        this.minijuego.presionarBoton({ tecla, keyCode });
+      }
     }
   }
 
