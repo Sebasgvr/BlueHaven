@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BlueHaven</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Pantalla de login/registro, tapa todo hasta autenticarse -->
+  <div id="pantalla-auth">
+    <div class="fondo-olas" aria-hidden="true">
+      <div class="ola ola-1"></div>
+      <div class="ola ola-2"></div>
+    </div>
+
+    <div class="caja-auth">
+      <div class="marca">
+        <span class="marca-icono" aria-hidden="true">🎣</span>
+        <h1 class="marca-titulo">BlueHaven</h1>
+        <p class="marca-tagline">Tu diario de pesca</p>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button
+          type="button"
+          id="tab-login"
+          class="tab activo"
+          onclick="mostrarLogin()"
+        >
+          Iniciar sesión
+        </button>
+        <button
+          type="button"
+          id="tab-registro"
+          class="tab"
+          onclick="mostrarRegistro()"
+        >
+          Crear cuenta
+        </button>
+      </div>
+
+      <form id="form-login" class="form-auth">
+        <label class="campo">
+          <span>Usuario</span>
+          <input type="text" id="login-usuario" autocomplete="username" required />
+        </label>
+        <label class="campo">
+          <span>Contraseña</span>
+          <input
+            type="password"
+            id="login-password"
+            autocomplete="current-password"
+            required
+          />
+        </label>
+        <button type="submit" class="boton-principal">Entrar al agua</button>
+        <p class="error" id="login-error"></p>
+      </form>
+
+      <form id="form-registro" class="form-auth" style="display:none">
+        <label class="campo">
+          <span>Usuario</span>
+          <input type="text" id="reg-usuario" autocomplete="username" required />
+        </label>
+        <label class="campo">
+          <span>Email</span>
+          <input type="email" id="reg-email" autocomplete="email" required />
+        </label>
+        <label class="campo">
+          <span>Contraseña</span>
+          <input
+            type="password"
+            id="reg-password"
+            autocomplete="new-password"
+            minlength="6"
+            required
+          />
+          <small>Mínimo 6 caracteres</small>
+        </label>
+        <button type="submit" class="boton-principal">Crear mi cuenta</button>
+        <p class="error" id="reg-error"></p>
+      </form>
+    </div>
+  </div>
+
+  <button id="boton-logout" type="button" style="display:none">Cerrar sesión</button>
+
+  <script src="libraries/p5.min.js"></script>
+  <script src="libraries/p5.sound.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+  <script src="auth.js"></script>
+  <script src="mapa.js"></script>
+  <script src="jugador.js"></script>
+  <script src="minijuegos.js"></script>
+  <script src="captura.js"></script>
+  <script src="tienda.js"></script>
+  <script src="inventario.js"></script>
+  <script src="sketch.js"></script>
+</body>
+</html>
