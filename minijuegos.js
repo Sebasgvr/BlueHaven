@@ -1,11 +1,9 @@
-// Minijuegos de captura, uno por nivel de rareza del pez.
-
 class MinijuegoPesca {
   constructor(pez) {
     this.pez = pez;
     this.tiempo = 0;
     this.botonPresionado = false;
-    this.resultado = null; // capturado | linea_rota | pez_escapado
+    this.resultado = null; // capturado o linea_rota o pez_escapado
   }
 
   presionarBoton() {
@@ -66,7 +64,6 @@ function dibujarBarrasPesca(progreso, tension) {
 const ANGULO_VERDE = 18; // grados del canal donde se gana progreso
 const ANGULO_LIMITE = 80; // grados donde la aguja toca el tope
 
-// Dibuja el sprite del pez (si tiene) arriba a la derecha del minijuego.
 function dibujarSpritePez(pez) {
   if (!pez || !pez.sprite) return;
   const imagen = spritesPeces && spritesPeces[pez.sprite];
@@ -75,7 +72,6 @@ function dibujarSpritePez(pez) {
   image(imagen, width - 62, height * 0.02, 52, 52);
 }
 
-// Peces poco comunes: mantener la aguja centrada venciendo los tirones del pez.
 class MinijuegoBrújula extends MinijuegoPesca {
   constructor(pez) {
     super(pez);
@@ -113,7 +109,8 @@ class MinijuegoBrújula extends MinijuegoPesca {
       const impulso = random(85, 135) * this.pez.velocidad * signo;
       this.velocidadAngular += impulso;
       this.timerTiron = random(1.4, 2.6) / this.pez.velocidad;
-      this.feedback = signo > 0 ? "¡Tirón a la derecha!" : "¡Tirón a la izquierda!";
+      this.feedback =
+        signo > 0 ? "¡Tirón a la derecha!" : "¡Tirón a la izquierda!";
       this.tiempoFeedback = 0.5;
       this.screenShakeLocal = 0.6;
     }
@@ -136,7 +133,6 @@ class MinijuegoBrújula extends MinijuegoPesca {
     const enCanal = abs(this.angulo) <= ANGULO_VERDE;
     const desvio = abs(this.angulo) / ANGULO_LIMITE;
 
-    // Dentro del canal una leve fuerza reciente al centro premia la punteria
     if (enCanal) this.velocidadAngular -= this.angulo * 2.5 * dt;
 
     if (abs(this.angulo) >= ANGULO_LIMITE) {
@@ -226,11 +222,7 @@ class MinijuegoBrújula extends MinijuegoPesca {
 
     fill(190, 200, 215);
     textSize(13);
-    text(
-      "[A/D o ←/→] centrá la aguja — [SPACE] frena",
-      cx,
-      height * 0.86,
-    );
+    text("[A/D o ←/→] centrá la aguja — [SPACE] frena", cx, height * 0.86);
 
     if (this.tiempoFeedback > 0 && this.feedback) {
       fill(0, 0, 0, 140);
@@ -248,7 +240,7 @@ class MinijuegoBrújula extends MinijuegoPesca {
 const UMBRAL_TEMPRANO = 0.55; // antes de esto el pulso no cuenta
 const UMBRAL_PERFECTO = 0.85;
 
-// Peces comunes: un anillo que se encoge, pulso en el momento exacto.
+// Peces comunes
 class MinijuegoAnillo extends MinijuegoPesca {
   constructor(pez, opciones) {
     super(pez);
@@ -416,7 +408,7 @@ class MinijuegoAnillo extends MinijuegoPesca {
 
 const VENTANA_ACIERTO_RITMO = 0.28; // segundos de tolerancia para golpear una nota
 
-// Peces raros: notas por pistas tipo Guitar Hero, cada pista con su propio boton.
+// Peces raros
 class MinijuegoRitmo extends MinijuegoPesca {
   constructor(pez, opciones) {
     super(pez);
@@ -431,7 +423,8 @@ class MinijuegoRitmo extends MinijuegoPesca {
     this.velocidadPista = 110 + this.pez.velocidad * 25;
     this.ultimoPulso = -1;
     this.ultimoPulsoPista = [];
-    for (let i = 0; i < this.cantidadPistas; i++) this.ultimoPulsoPista.push(-1);
+    for (let i = 0; i < this.cantidadPistas; i++)
+      this.ultimoPulsoPista.push(-1);
     this.feedback = "";
     this.tiempoFeedback = 0;
     this.golpes = []; // animaciones de acierto
@@ -441,11 +434,12 @@ class MinijuegoRitmo extends MinijuegoPesca {
   }
 
   _definirPistas() {
-    const hitX0 = width * 0.18;
-    const anchoPista = (width - hitX0 - 40) / this.cantidadPistas;
+    const n = this.cantidadPistas;
+    this.hitY = height * 0.68;
+    this.espaciadoPista = 78;
+    const anchoTotal = (n - 1) * this.espaciadoPista;
+    const hitX0 = width / 2 - anchoTotal / 2;
     this.lineaX = hitX0;
-    this.pistaY = height * 0.55;
-    this.espaciadoPista = 46;
     this.pistas = [];
     const teclasGrupo = [
       ["A", "Z"],
@@ -457,18 +451,17 @@ class MinijuegoRitmo extends MinijuegoPesca {
       [83, 88],
       [68, 67],
     ];
-    for (let i = 0; i < this.cantidadPistas; i++) {
+    for (let i = 0; i < n; i++) {
       const g = i % 3;
       this.pistas.push({
-        hitX: hitX0 + anchoPista * i + anchoPista * 0.5,
-        y: this.pistaY + (i - (this.cantidadPistas - 1) / 2) * this.espaciadoPista,
+        hitX: hitX0 + i * this.espaciadoPista,
         teclas: teclasGrupo[g],
         keyCodes: codesGrupo[g],
       });
     }
   }
 
-  // Patron aleatorio: pista y separacion entre notas se sortean en cada partida.
+  // Patron aleatorio
   _generarNotas() {
     const notas = [];
     let t = 1.2;
@@ -490,7 +483,7 @@ class MinijuegoRitmo extends MinijuegoPesca {
   _pistaAleatoria(pistaAnterior, salto) {
     const n = this.cantidadPistas;
     if (pistaAnterior < 0) return floor(random(n));
-    // salto corto => evita repetir pista para que no se pisen las notas
+    
     if (salto < VENTANA_ACIERTO_RITMO * 1.75) {
       return (pistaAnterior + 1 + floor(random(n - 1))) % n;
     }
@@ -498,10 +491,11 @@ class MinijuegoRitmo extends MinijuegoPesca {
   }
 
   _xNota(nota) {
-    return (
-      this.pistas[nota.pista].hitX +
-      (nota.tiempo - this.tiempo) * this.velocidadPista
-    );
+    return this.pistas[nota.pista].hitX;
+  }
+
+  _yNota(nota) {
+    return this.hitY - (nota.tiempo - this.tiempo) * this.velocidadPista;
   }
 
   _pistaDeEntrada(entrada) {
@@ -510,11 +504,12 @@ class MinijuegoRitmo extends MinijuegoPesca {
     for (let i = 0; i < this.cantidadPistas; i++) {
       const p = this.pistas[i];
       for (let k = 0; k < p.keyCodes.length; k++) {
-        if (entrada.keyCode != null && entrada.keyCode === p.keyCodes[k]) return i;
+        if (entrada.keyCode != null && entrada.keyCode === p.keyCodes[k])
+          return i;
         if (tecla && tecla === p.teclas[k].toLowerCase()) return i;
       }
     }
-    // clic en pantalla: golpea la pista mas cercana al puntero
+
     if (entrada.x != null) {
       let mejor = -1;
       let mejorDist = Infinity;
@@ -624,37 +619,62 @@ class MinijuegoRitmo extends MinijuegoPesca {
     text(this.pez.nombre, width / 2, height * 0.06);
     dibujarSpritePez(this.pez);
 
-    // Pistas con su linea de golpe y tecla asignada
+    // Pistas verticales
+    const laneAncho = 54;
     for (let i = 0; i < this.cantidadPistas; i++) {
       const p = this.pistas[i];
 
       fill(16, 17, 20);
       noStroke();
-      rect(p.hitX, p.y - 15, width - p.hitX - 40, 30, 7);
+      rect(
+        p.hitX - laneAncho / 2,
+        height * 0.1,
+        laneAncho,
+        this.hitY - height * 0.08,
+        6,
+      );
 
-      const pulso = (sin(this.tiempo * 10) + 1) / 2;
-      stroke(255, 255, 255, 150 + pulso * 105);
-      strokeWeight(4);
-      line(p.hitX, p.y - 20, p.hitX, p.y + 20);
-      stroke(255, 255, 255, 60);
+      stroke(255, 255, 255, 40);
       strokeWeight(1);
-      line(p.hitX + 24, p.y - 18, p.hitX + 24, p.y + 18);
+      line(
+        p.hitX - laneAncho / 2,
+        height * 0.1,
+        p.hitX - laneAncho / 2,
+        this.hitY,
+      );
+      line(
+        p.hitX + laneAncho / 2,
+        height * 0.1,
+        p.hitX + laneAncho / 2,
+        this.hitY,
+      );
 
       noStroke();
       fill(60, 66, 78);
-      rect(p.hitX - 16, p.y + 26, 32, 20, 5);
+      rect(p.hitX - 16, this.hitY + 14, 32, 20, 5);
       fill(215, 230, 245);
       textAlign(CENTER, CENTER);
       textSize(12);
-      text(p.teclas[0], p.hitX, p.y + 36);
+      text(p.teclas[0], p.hitX, this.hitY + 24);
     }
 
-    // Notas acercandose por cada pista (desaparecen al golpearlas o pasarlas)
+    const pulso = (sin(this.tiempo * 10) + 1) / 2;
+    stroke(255, 255, 255, 150 + pulso * 105);
+    strokeWeight(4);
+    line(
+      this.lineaX - 20,
+      this.hitY,
+      this.lineaX + (this.cantidadPistas - 1) * this.espaciadoPista + 20,
+      this.hitY,
+    );
+    strokeWeight(1);
+
+    // Notas cayendo por cada pista
     for (const nota of this.notas) {
       if (nota.golpeada) continue;
       const x = this._xNota(nota);
-      if (x > width - 20 || x < this.lineaX - 50) continue;
-      const y = this.pistas[nota.pista].y;
+      const y = this._yNota(nota);
+      if (y > this.hitY + 26 || y < -26) continue;
       const delta = abs(nota.tiempo - this.tiempo);
       const activa = delta <= VENTANA_ACIERTO_RITMO;
       noStroke();
@@ -672,7 +692,7 @@ class MinijuegoRitmo extends MinijuegoPesca {
     // Anillos de acierto
     for (const golpe of this.golpes) {
       const x = this._xNota({ tiempo: golpe.tiempo, pista: golpe.pista });
-      const y = this.pistas[golpe.pista].y;
+      const y = this._yNota({ tiempo: golpe.tiempo, pista: golpe.pista });
       noFill();
       stroke(255, 230, 90, 255 * (1 - golpe.t / 0.35));
       strokeWeight(3);
@@ -706,7 +726,6 @@ class MinijuegoRitmo extends MinijuegoPesca {
   }
 }
 
-// Peces epicos: esquivar objetos que caen en la arena mientras sube el progreso.
 class MinijuegoEsquiva extends MinijuegoPesca {
   constructor(pez, opciones) {
     super(pez);
@@ -768,7 +787,7 @@ class MinijuegoEsquiva extends MinijuegoPesca {
     });
   }
 
-  // Dibuja la basura marina según su tipo (la mugre que la gente tira al agua).
+  // Dibuja la basura marina segun su tipo
   _dibujarBasura(obs) {
     const r = obs.radio;
     push();
@@ -796,7 +815,12 @@ class MinijuegoEsquiva extends MinijuegoPesca {
       for (let ix = -1; ix <= 1; ix++) {
         for (let iy = -1; iy <= 1; iy++) {
           noFill();
-          rect(ix * r * 0.9 - r * 0.45, iy * r * 0.9 - r * 0.45, r * 0.9, r * 0.9);
+          rect(
+            ix * r * 0.9 - r * 0.45,
+            iy * r * 0.9 - r * 0.45,
+            r * 0.9,
+            r * 0.9,
+          );
         }
       }
       noStroke();
@@ -871,7 +895,6 @@ class MinijuegoEsquiva extends MinijuegoPesca {
       obs.y += obs.vy * dt;
     }
 
-    // Choques: golpear => tension; la basura se descarta al tocar los bordes
     this.obstaculos = this.obstaculos.filter((obs) => {
       const fuera =
         obs.x < this.arenaX ||
@@ -941,6 +964,23 @@ class MinijuegoEsquiva extends MinijuegoPesca {
     fill(255);
     circle(this.jugX - 8, this.jugY - 3, 3);
 
+    const bocaX = this.jugX - 15;
+    const bocaY = this.jugY - 1;
+    const anclaX = width / 2;
+    const anclaY = height * 0.03 + sin(this.tiempo * 1.3) * 5;
+    stroke(245, 242, 221);
+    strokeWeight(2.5);
+    noFill();
+    beginShape();
+    vertex(bocaX, bocaY);
+    quadraticVertex((bocaX + anclaX) / 2, bocaY - 120, anclaX, anclaY);
+    endShape();
+    stroke(205, 205, 205);
+    strokeWeight(2);
+    arc(bocaX - 2, bocaY + 5, 12, 12, radians(-100), radians(70));
+    line(bocaX + 1, bocaY + 8, bocaX - 2, bocaY + 12);
+    noStroke();
+
     dibujarBarrasPesca(this.progreso, this.tension);
 
     if (this.flash > 0) {
@@ -966,7 +1006,6 @@ class MinijuegoEsquiva extends MinijuegoPesca {
   }
 }
 
-// Peces legendarios: cadena de fases cortas que terminan en un golpe perfecto.
 class MinijuegoMultietapa extends MinijuegoPesca {
   constructor(pez) {
     super(pez);
@@ -1033,7 +1072,7 @@ class MinijuegoMultietapa extends MinijuegoPesca {
   dibujar() {
     this.actual.mini.dibujar();
 
-    // Cartel de transicion para dramatizar el cambio de fase
+    // Cartel de transicion 
     if (this.tiempoTitulo < 1.1) {
       const alpha = map(this.tiempoTitulo, 0, 1.1, 235, 60);
       fill(10, 12, 16, alpha);
