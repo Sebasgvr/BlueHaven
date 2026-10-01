@@ -316,3 +316,121 @@ function dibujarPanelInventario() {
   textAlign(LEFT, BASELINE);
   pop();
 }
+
+const PRECIO_CAÑA_TIENDA = 150;
+let tieneCañaBambu = false;
+
+function abrirMenuComprarCaña() {
+  menuTienda = "comprar_caña";
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+
+function comprarCañaTienda() {
+  if (tieneCañaBambu) {
+    mostrarMensaje("Ya tenés la Caña de Bambú.");
+    cerrarMenu();
+    return;
+  }
+  if (dinero < PRECIO_CAÑA_TIENDA) {
+    mostrarMensaje("No tenés suficiente dinero ($" + PRECIO_CAÑA_TIENDA + " necesarios).");
+    return;
+  }
+  dinero -= PRECIO_CAÑA_TIENDA;
+  tieneCañaBambu = true;
+  mostrarMensaje("¡Compraste la Caña de Bambú por $" + PRECIO_CAÑA_TIENDA + "!");
+  if (typeof equiparCañaBambu === "function") {
+    equiparCañaBambu();
+  }
+  cerrarMenu();
+}
+
+function _rectPanelCompra() {
+  const ancho = min(360, width - 30);
+  const alto = min(280, height - 30);
+  return { x: (width - ancho) / 2, y: (height - alto) / 2, w: ancho, h: alto };
+}
+
+function dibujarPanelComprarCaña() {
+  const p = _rectPanelCompra();
+  push();
+  fill(12, 20, 32, 240);
+  stroke(70, 120, 180);
+  strokeWeight(2);
+  rect(p.x, p.y, p.w, p.h, 12);
+  noStroke();
+
+  fill(130, 200, 255);
+  textSize(17);
+  textAlign(CENTER, CENTER);
+  text("Pescadería: Caña de Pescar", p.x + p.w / 2, p.y + 26);
+
+  const boxX = p.x + p.w / 2 - 32;
+  const boxY = p.y + 54;
+  fill(24, 38, 56, 220);
+  stroke(60, 100, 140);
+  strokeWeight(1.5);
+  rect(boxX, boxY, 64, 64, 8);
+  noStroke();
+
+  fill(255, 220, 100);
+  textSize(28);
+  textAlign(CENTER, CENTER);
+  text("🎣", boxX + 32, boxY + 32);
+
+  fill(255);
+  textSize(16);
+  textAlign(CENTER, CENTER);
+  text("Caña de Bambú", p.x + p.w / 2, p.y + 132);
+
+  fill(255, 215, 80);
+  textSize(14);
+  text("Precio: $" + PRECIO_CAÑA_TIENDA + "  (Tenés: $" + dinero + ")", p.x + p.w / 2, p.y + 154);
+
+  const btnW = 140;
+  const btnH = 34;
+  const btnY = p.y + p.h - 48;
+
+  const btnComprar = { x: p.x + 24, y: btnY, w: btnW, h: btnH };
+  push();
+  fill(25, 75, 55, 240);
+  stroke(70, 180, 120);
+  strokeWeight(1.5);
+  rect(btnComprar.x, btnComprar.y, btnComprar.w, btnComprar.h, 8);
+  fill(140, 255, 180);
+  noStroke();
+  textAlign(CENTER, CENTER);
+  textSize(13);
+  text(tieneCañaBambu ? "Comprada" : "Comprar [E]", btnComprar.x + btnComprar.w / 2, btnComprar.y + btnComprar.h / 2);
+  pop();
+
+  const btnCancelar = { x: p.x + p.w - btnW - 24, y: btnY, w: btnW, h: btnH };
+  push();
+  fill(65, 30, 35, 240);
+  stroke(180, 80, 90);
+  strokeWeight(1.5);
+  rect(btnCancelar.x, btnCancelar.y, btnCancelar.w, btnCancelar.h, 8);
+  fill(255, 170, 175);
+  noStroke();
+  textAlign(CENTER, CENTER);
+  textSize(13);
+  text("Cancelar [Q]", btnCancelar.x + btnCancelar.w / 2, btnCancelar.y + btnCancelar.h / 2);
+  pop();
+
+  pop();
+}
+
+function manejarClicComprarCaña(x, y) {
+  const p = _rectPanelCompra();
+  const btnW = 140;
+  const btnH = 34;
+  const btnY = p.y + p.h - 48;
+  const btnComprar = { x: p.x + 24, y: btnY, w: btnW, h: btnH };
+  const btnCancelar = { x: p.x + p.w - btnW - 24, y: btnY, w: btnW, h: btnH };
+
+  const dentro = (r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  if (dentro(btnComprar)) {
+    comprarCañaTienda();
+  } else if (dentro(btnCancelar)) {
+    cerrarMenu();
+  }
+}

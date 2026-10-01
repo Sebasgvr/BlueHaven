@@ -58,6 +58,7 @@ function draw() {
   actualizarLanzamientoAnzuelo();
   actualizarCañaPesca();
   actualizarAgua();
+  actualizarAnimacionCañaTienda();
   renderizador3D.render(escena3D, camara3D);
 
   sistemaCaptura.actualizar();
@@ -65,9 +66,11 @@ function draw() {
 
   if (menuTienda !== "cerrado") {
     if (menuTienda === "tienda") dibujarPanelVenta();
+    else if (menuTienda === "comprar_caña") dibujarPanelComprarCaña();
     else dibujarPanelInventario();
   } else if (sistemaCaptura.estado === "inactivo") {
-    if (cercaDelAgua()) dibujarIndicadorPesca();
+    if (mirandoCañaTienda()) dibujarIndicadorCañaTienda();
+    else if (cercaDelAgua()) dibujarIndicadorPesca();
     else if (cercaDeTienda()) dibujarIndicadorTienda();
   }
 
@@ -144,8 +147,13 @@ function keyPressed() {
   }
   if (menuTienda !== "cerrado") {
     const tecla = (key || "").toLowerCase();
+    if (menuTienda === "comprar_caña") {
+      if (tecla === "e") comprarCañaTienda();
+      else if (tecla === "q" || keyCode === ESCAPE) cerrarMenu();
+      return false;
+    }
     if (tecla === "b" && menuTienda === "tienda") venderTodos();
-    else if (tecla === "e" || tecla === "i" || tecla === "b") cerrarMenu();
+    else if (tecla === "e" || tecla === "i" || tecla === "b" || keyCode === ESCAPE) cerrarMenu();
     return false;
   }
   if (key === "i" || key === "I") {
@@ -216,8 +224,17 @@ function controlarClicEscena(evento) {
     manejarClicVenta(evento.clientX, evento.clientY);
     return;
   }
+  if (menuTienda === "comprar_caña") {
+    manejarClicComprarCaña(evento.clientX, evento.clientY);
+    return;
+  }
   if (menuTienda === "inventario") {
     cerrarMenu();
+    return;
+  }
+
+  if (mirandoCañaTienda()) {
+    abrirMenuComprarCaña();
     return;
   }
 
@@ -384,8 +401,187 @@ function inicializarEscena3D() {
 
   cargarTiendaEnEscena();
   cargarKiwifinaEnEscena();
+  cargarCañaTiendaEnEscena();
   cargarCañaPesca();
 }
+
+let modeloCañaTienda = null;
+let grupoCañaTienda = null;
+let elevacionHoverCaña = 0;
+let posicionBaseCaña = new THREE.Vector3();
+let mallaHitboxCaña = null;
+
+function cargarCañaTiendaEnEscena() {
+  if (!TIENDA.posicion || !escena3D) return;
+
+  const cargador = new THREE.GLTFLoader();
+  cargador.load(
+    "models/bamboo_fishing_rod/scene.gltf",
+    (resultado) => {
+      modeloCañaTienda = resultado.scene;
+
+      // Ocultar la cuerda/línea vertical 'Robe' que venía en el modelo y subía hacia el cielo
+      modeloCañaTienda.traverse((objeto) => {
+        if (objeto.name && objeto.name.toLowerCase().includes("robe")) {
+          objeto.visible = false;
+        }
+        if (!objeto.isMesh) return;
+        objeto.material.side = THREE.DoubleSide;
+        objeto.castShadow = true;
+      });
+
+      const caja = new THREE.Box3().setFromObject(modeloCañaTienda);
+      const centro = caja.getCenter(new THREE.Vector3());
+      const tamaño = caja.getSize(new THREE.Vector3());
+      const escala = (TAMAÑO_CELDA * 1.35) / Math.max(tamaño.x, tamaño.y, tamaño.z);
+
+      modeloCañaTienda.position.sub(centro);
+      modeloCañaTienda.scale.setScalar(escala);
+
+      // Hitbox cilíndrica invisible adherida al nodo de la caña ('Rod') para seguir su rotación y forma real
+      const nodoRod = modeloCañaTienda.getObjectByName("Rod") || modeloCañaTienda;
+      const geoHitbox = new THREE.CylinderGeometry(0.1, 0.1, 4.8, 8);
+      const matHitbox = new THREE.MeshBasicMaterial({ visible: false, wireframe: false });
+      mallaHitboxCaña = new THREE.Mesh(geoHitbox, matHitbox);
+      mallaHitboxCaña.position.set(0, 0.1, 0);
+      mallaHitboxCaña.name = "HitboxCañaTienda";
+      nodoRod.add(mallaHitboxCaña);
+
+      // Contenedor colocado frente a la tienda junto al soporte izquierdo
+      grupoCañaTienda = new THREE.Group();
+      grupoCañaTienda.add(modeloCañaTienda);
+
+      // ROTACIÓN: (Inclinación Adelante/Atrás, Giro Horizontal, Inclinación Lateral)
+      modeloCañaTienda.rotation.set(1.7, -0.1, 0.299);
+
+      // POSICIÓN DE LA CAÑA:
+      // X = IZQUIERDA / DERECHA:
+      //     - Restar positivo (ej: - TAMAÑO_CELDA * 0.4) la mueve a la IZQUIERDA.
+      //     - Sumar o restar negativo (ej: - TAMAÑO_CELDA * -0.4) la mueve a la DERECHA.
+      // Y = SUBE / BAJA:
+      //     - Aumentar el valor (ej: * 0.6) la SUBE hacia arriba.
+      //     - Disminuir el valor (ej: * 0.2) la BAJA hacia el suelo.
+      // Z = ACERCA / ALEJA (Profundidad frente a la tienda):
+      //     - Restar más (ej: - TAMAÑO_CELDA * 1.5) la ALEJA de la tienda (más cerca del jugador).
+      //     - Restar menos (ej: - TAMAÑO_CELDA * 0.2) la ACERCA/METE hacia adentro de la tienda.
+      posicionBaseCaña.set(
+        TIENDA.posicion.x - TAMAÑO_CELDA * -0.73, // <-- Eje X (Izquierda / Derecha)
+        TAMAÑO_CELDA * 0.72,                     // <-- Eje Y (Sube / Baja)
+        TIENDA.posicion.y - TAMAÑO_CELDA * 1.02,  // <-- Eje Z (Acerca / Aleja)
+      );
+
+      grupoCañaTienda.position.copy(posicionBaseCaña);
+      escena3D.add(grupoCañaTienda);
+    },
+    undefined,
+    (error) => console.error("No se pudo cargar la caña de bambú en la tienda:", error),
+  );
+}
+
+function actualizarAnimacionCañaTienda() {
+  if (!grupoCañaTienda || !modeloCañaTienda) return;
+
+  const estaMirando = mirandoCañaTienda();
+  const objetivoHover = estaMirando ? 1 : 0;
+  elevacionHoverCaña = THREE.MathUtils.lerp(elevacionHoverCaña, objetivoHover, 0.16);
+
+  // Se levanta suavemente cuando el cursor está encima y flota ligeramente
+  const offsetLevantamiento = elevacionHoverCaña * 7.5 + (estaMirando ? Math.sin(frameCount * 0.12) * 1.5 : 0);
+  grupoCañaTienda.position.y = posicionBaseCaña.y + offsetLevantamiento;
+
+  // Ilumina los bordes / materiales con un resplandor verde brillante
+  modeloCañaTienda.traverse((objeto) => {
+    if (objeto.name && objeto.name.toLowerCase().includes("robe")) {
+      objeto.visible = false;
+      return;
+    }
+    if (objeto.isMesh && objeto.material && objeto !== mallaHitboxCaña) {
+      if (objeto.material.emissive) {
+        objeto.material.emissive.setHex(0x768F49); // Verde luminoso
+        objeto.material.emissiveIntensity = elevacionHoverCaña * 0.45;
+      }
+    }
+  });
+}
+
+function mirandoCañaTienda() {
+  if (!modeloCañaTienda || !camara3D || !TIENDA.posicion) return false;
+
+  const distJugador = p5.Vector.dist(jugador.posicion, TIENDA.posicion);
+  if (distJugador > TAMAÑO_CELDA * 4.0) return false;
+
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camara3D);
+
+  // Raycast directo 3D sobre la caña y su volumen cilíndrico
+  const objetivos = mallaHitboxCaña ? [modeloCañaTienda, mallaHitboxCaña] : [modeloCañaTienda];
+  const intersecciones = raycaster.intersectObjects(objetivos, true);
+
+  for (let i = 0; i < intersecciones.length; i++) {
+    const hit = intersecciones[i];
+    // Ignorar objetos no visibles como la línea 'Robe'
+    if (hit.object && hit.object.name && hit.object.name.toLowerCase().includes("robe")) {
+      continue;
+    }
+    if (hit.distance <= TAMAÑO_CELDA * 3.5) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function dibujarIndicadorCañaTienda() {
+  const pulso = (sin(frameCount * 0.08) + 1) / 2;
+
+  fill(0, 0, 0, 150);
+  noStroke();
+  rect(width / 2 - 140, height * 0.85 - 20, 280, 36, 8);
+
+  fill(120, 230, 255, 185 + pulso * 70);
+  textAlign(CENTER, CENTER);
+  textSize(15);
+  text("🎣 Caña de Bambú  •  [Click] Comprar", width / 2, height * 0.85 - 2);
+  textAlign(LEFT, BASELINE);
+}
+
+function equiparCañaBambu() {
+  if (!cañaPesca) return;
+  const cargador = new THREE.GLTFLoader();
+  cargador.load(
+    "models/bamboo_fishing_rod/scene.gltf",
+    (resultado) => {
+      while (cañaPesca.children.length > 0) {
+        cañaPesca.remove(cañaPesca.children[0]);
+      }
+      const modelo = resultado.scene;
+      const caja = new THREE.Box3().setFromObject(modelo);
+      const centro = caja.getCenter(new THREE.Vector3());
+      const tamaño = caja.getSize(new THREE.Vector3());
+      const escala = 3.5 / Math.max(tamaño.x, tamaño.y, tamaño.z);
+
+      modelo.position.sub(centro);
+      modelo.scale.setScalar(escala);
+      modelo.position.set(6, -0.8, 6);
+      modelo.rotation.set(0.4, 0.2, 0.5);
+      modelo.traverse((objeto) => {
+        if (objeto.name && objeto.name.toLowerCase().includes("robe")) {
+          objeto.visible = false;
+          return;
+        }
+        if (!objeto.isMesh || !objeto.material) return;
+        objeto.material.side = THREE.DoubleSide;
+        objeto.material.depthTest = false;
+        objeto.material.needsUpdate = true;
+      });
+      modelo.renderOrder = 20;
+      cañaPesca.add(modelo);
+    },
+    undefined,
+    (error) => console.error("No se pudo equipar la caña de bambú:", error),
+  );
+}
+
 
 function cargarKiwifinaEnEscena() {
   if (!TIENDA.posicion) return;
@@ -665,7 +861,7 @@ function cargarTiendaEnEscena() {
       const centro = caja.getCenter(new THREE.Vector3());
       const tamaño = caja.getSize(new THREE.Vector3());
       const escala =
-        (TAMAÑO_CELDA * 1.8) / Math.max(tamaño.x, tamaño.y, tamaño.z);
+        (TAMAÑO_CELDA * 1.5) / Math.max(tamaño.x, tamaño.y, tamaño.z);
 
       modelo.position.sub(centro);
       modelo.scale.setScalar(escala);
@@ -727,9 +923,10 @@ function esArenaEnCosta(fila, columna) {
 }
 
 function actualizarCamara3D() {
+  const descensoAgachado = (jugador.factorAgachado || 0) * (TAMAÑO_CELDA * 0.35);
   camara3D.position.set(
     jugador.posicion.x,
-    TAMAÑO_CELDA * 0.7 + jugador.alturaSalto,
+    TAMAÑO_CELDA * 0.7 + jugador.alturaSalto - descensoAgachado,
     jugador.posicion.y,
   );
   camara3D.rotation.set(jugador.inclinacion, -jugador.angulo - Math.PI / 2, 0);

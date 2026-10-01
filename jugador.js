@@ -10,11 +10,14 @@ class Jugador {
     this.margenColision = 10;
     this.alturaSalto = 0;
     this.velocidadSalto = 0;
+    this.agachado = false;
+    this.factorAgachado = 0; // 0 = parado, 1 = agachado
   }
 
   mover(cantidad) {
+    const multVel = this.agachado ? 0.55 : 1.0;
     const dir = p5.Vector.fromAngle(this.angulo).mult(
-      cantidad * this.velocidad,
+      cantidad * this.velocidad * multVel,
     );
 
     const nuevoX = createVector(this.posicion.x + dir.x, this.posicion.y);
@@ -25,8 +28,9 @@ class Jugador {
   }
 
   moverLateral(cantidad) {
+    const multVel = this.agachado ? 0.55 : 1.0;
     const dir = createVector(-Math.sin(this.angulo), Math.cos(this.angulo));
-    dir.mult(cantidad * this.velocidad);
+    dir.mult(cantidad * this.velocidad * multVel);
 
     const nuevoX = createVector(this.posicion.x + dir.x, this.posicion.y);
     const nuevoY = createVector(this.posicion.x, this.posicion.y + dir.y);
@@ -68,11 +72,16 @@ class Jugador {
   }
 
   saltar() {
-    if (this.alturaSalto > 0) return;
+    if (this.alturaSalto > 0 || this.agachado) return;
     this.velocidadSalto = 360;
   }
 
   actualizar() {
+    // Detectar tecla Control (keyCode 17) para agacharse
+    this.agachado = keyIsDown(17) || keyIsDown(CONTROL);
+    const objetivoAgachado = this.agachado ? 1 : 0;
+    this.factorAgachado = THREE.MathUtils.lerp(this.factorAgachado, objetivoAgachado, 0.2);
+
     if (keyIsDown(87)) this.mover(1);
     if (keyIsDown(83)) this.mover(-1);
     if (keyIsDown(65)) this.moverLateral(-1);
