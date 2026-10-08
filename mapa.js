@@ -1,17 +1,12 @@
 const TAMAÑO_CELDA = 64;
 
-// 1 = pared 
-// 0 = pasto 
-// 2 = borde de tierra
-// 3 = agua
-
 const MAPA = [
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 0, 0, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 0, 0, 2, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 2, 3, 0, 3, 2, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 0, 0, 2, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 0, 0, 2, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 0, 0, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -19,6 +14,16 @@ const MAPA = [
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+];
+
+// Objetos 3D estáticos del mapa (posición en píxeles de mundo)
+const OBJETOS = [
+  {
+    x: TAMAÑO_CELDA * 8.5,
+    y: TAMAÑO_CELDA * 8.5,
+    escala: 1,       // ajustá esto según el tamaño real del .obj
+    rotacionY: 0,       // radianes, si el modelo mira para el lado equivocado
+  },
 ];
 
 const MAPA_ANCHO = MAPA[0].length;
@@ -31,28 +36,14 @@ function esPared(celdaX, celdaY) {
   return MAPA[celdaY][celdaX] === 1;
 }
 
-const SUELOS = [
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-];
+const TAMANO_TILE = 16;
 
-// Devuelve el número de textura del suelo para una celda
-function obtenerSuelo(fila, columna) {
-  if (fila < 0 || fila >= SUELOS.length) return 0;
-  if (columna < 0 || columna >= SUELOS[0].length) return 0;
-  return SUELOS[fila][columna];
+const COL_PASTO = 0;
+const COL_TIERRA = 1;
+const COL_AGUA = 12;
+
+function obtenerColumnaSprite(tipoCelda) {
+  if (tipoCelda === 2) return COL_TIERRA;
+  if (tipoCelda === 3) return COL_AGUA;
+  return COL_PASTO;
 }
