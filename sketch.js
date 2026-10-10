@@ -153,6 +153,9 @@ function dibujarIndicadorPesca() {
 }
 
 function keyPressed() {
+  // Con el chat abierto ignoramos TODAS las teclas del juego pero sin
+  // preventDefault: así se puede escribir en el input del chat.
+  if (window.chatAbierto) return;
   if (keyCode === ESCAPE) {
     if (menuTienda !== "cerrado") {
       cerrarMenu();
@@ -212,6 +215,7 @@ function keyPressed() {
 }
 
 function keyReleased() {
+  if (window.chatAbierto) return;
   if (keyCode === 32) {
     sistemaCaptura.soltarBoton();
     return false;
@@ -219,18 +223,21 @@ function keyReleased() {
 }
 
 function mousePressed() {
+  if (window.chatAbierto) return;
   if (sistemaCaptura.estado !== "inactivo") {
     sistemaCaptura.presionarBoton({ x: mouseX, y: mouseY });
   }
 }
 
 function mouseReleased() {
+  if (window.chatAbierto) return;
   if (sistemaCaptura.estado !== "inactivo") {
     sistemaCaptura.soltarBoton();
   }
 }
 
 function controlarClicEscena(evento) {
+  if (window.chatAbierto) return;
   if (menuTienda === "tienda") {
     manejarClicVenta(evento.clientX, evento.clientY);
     return;

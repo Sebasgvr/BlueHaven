@@ -127,6 +127,7 @@ async function ocultarAuthYArrancar(errorEl) {
     }
     pantallaAuth.style.display = "none";
     botonLogout.style.display = "block";
+    document.body.classList.add("jugando");
   } catch (err) {
     console.error("No se pudo iniciar el juego:", err);
     if (errorEl) {
