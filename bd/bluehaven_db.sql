@@ -242,3 +242,40 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `preguntas_chatbot`
+-- Guarda lo que los usuarios le preguntan al bot (opción 2: bot de reglas + BD)
+--
+
+CREATE TABLE `preguntas_chatbot` (
+  `id` int(11) NOT NULL,
+  `usuario_id` int(11) DEFAULT NULL,
+  `pez_id` int(11) DEFAULT NULL,
+  `pregunta` text NOT NULL,
+  `respuesta` text DEFAULT NULL,
+  `creado_en` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Indices de la tabla `preguntas_chatbot`
+--
+ALTER TABLE `preguntas_chatbot`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `usuario_id` (`usuario_id`),
+  ADD KEY `pez_id` (`pez_id`);
+
+--
+-- AUTO_INCREMENT de la tabla `preguntas_chatbot`
+--
+ALTER TABLE `preguntas_chatbot`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Filtros para la tabla `preguntas_chatbot`
+--
+ALTER TABLE `preguntas_chatbot`
+  ADD CONSTRAINT `preguntas_chatbot_ibfk_1` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `preguntas_chatbot_ibfk_2` FOREIGN KEY (`pez_id`) REFERENCES `peces` (`id`) ON DELETE SET NULL;
