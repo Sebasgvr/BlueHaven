@@ -1,7 +1,7 @@
 class Jugador {
   constructor(x, y) {
     this.posicion = createVector(x, y);
-    this.angulo = 0;
+    this.angulo = PI;
     this.inclinacion = 0;
     this.velocidad = 2.5;
     this.velocidadGiro = 0.045;
@@ -77,10 +77,14 @@ class Jugador {
   }
 
   actualizar() {
+
     // Detectar tecla Control (keyCode 17) para agacharse
     this.agachado = keyIsDown(17) || keyIsDown(CONTROL);
     const objetivoAgachado = this.agachado ? 1 : 0;
     this.factorAgachado = THREE.MathUtils.lerp(this.factorAgachado, objetivoAgachado, 0.2);
+
+    // Bloquear movimiento mientras la enciclopedia está abierta
+    if (typeof ENCICLOPEDIA !== 'undefined' && ENCICLOPEDIA.abierta) return;
 
     if (keyIsDown(87)) this.mover(1);
     if (keyIsDown(83)) this.mover(-1);

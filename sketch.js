@@ -40,10 +40,10 @@ function setup() {
   interfaz.style.zIndex = "2";
   interfaz.style.pointerEvents = "none";
 
-  jugador = new Jugador(TAMAÑO_CELDA * 7.5, TAMAÑO_CELDA * 5.5);
+  jugador = new Jugador(TAMAÑO_CELDA * 32, TAMAÑO_CELDA * 19);
 
   sistemaCaptura = new SistemaCaptura();
-  tiendaInicializar();
+  TIENDA.posicion = createVector(TAMAÑO_CELDA * 28.5, TAMAÑO_CELDA * 19);
   inicializarEscena3D();
 }
 
@@ -70,13 +70,15 @@ function draw() {
     else dibujarPanelInventario();
   } else if (sistemaCaptura.estado === "inactivo") {
     if (mirandoCañaTienda()) dibujarIndicadorCañaTienda();
-    else if (cercaDelAgua()) dibujarIndicadorPesca();
+    // else if (cercaDelAgua()) dibujarIndicadorPesca();
     else if (cercaDeTienda()) dibujarIndicadorTienda();
   }
 
   dibujarHUD();
 
   if (ratonBloqueado) dibujarPuntero();
+
+  dibujarEnciclopedia();
 }
 
 function mouseMoved(evento) {
@@ -118,7 +120,7 @@ function cercaDelAgua() {
 function cercaDeTienda() {
   if (!TIENDA.posicion) return false;
   return (
-    p5.Vector.dist(jugador.posicion, TIENDA.posicion) <= TAMAÑO_CELDA * 1.9
+    p5.Vector.dist(jugador.posicion, TIENDA.posicion) <= TAMAÑO_CELDA * 3.2
   );
 }
 
@@ -137,6 +139,14 @@ function dibujarIndicadorPesca() {
 }
 
 function keyPressed() {
+  // Si la enciclopedia está abierta, capturar todas las teclas
+  if (ENCICLOPEDIA.abierta) {
+    if (key === "w" || key === "W" || keyCode === UP_ARROW) navegarEnciclopedia(-1);
+    else if (key === "s" || key === "S" || keyCode === DOWN_ARROW) navegarEnciclopedia(1);
+    else if (key === "e" || key === "E" || keyCode === ESCAPE || key === "l" || key === "L") cerrarEnciclopedia();
+    return false;
+  }
+
   if (keyCode === ESCAPE) {
     if (menuTienda !== "cerrado") {
       cerrarMenu();
@@ -159,6 +169,12 @@ function keyPressed() {
   if (key === "i" || key === "I") {
     if (sistemaCaptura.estado === "inactivo" && estadoLanzamiento === "reposo") {
       abrirMenuInventario();
+    }
+    return false;
+  }
+  if (key === "l" || key === "L") {
+    if (sistemaCaptura.estado === "inactivo" && estadoLanzamiento === "reposo" && menuTienda === "cerrado") {
+      abrirEnciclopedia();
     }
     return false;
   }
@@ -339,7 +355,7 @@ function inicializarEscena3D() {
     58,
     windowWidth / windowHeight,
     0.01,
-    TAMAÑO_CELDA * 40,
+    TAMAÑO_CELDA * 80,
   );
   camara3D.rotation.order = "YXZ";
   renderizador3D = new THREE.WebGLRenderer({ antialias: false });
@@ -361,16 +377,33 @@ function inicializarEscena3D() {
   document.addEventListener("pointerlockchange", actualizarEstadoRaton);
   document.addEventListener("mousemove", moverCamaraConMouse);
 
-  escena3D.add(new THREE.HemisphereLight(0xbfe9ff, 0x42633c, 0.95));
-  const sol = new THREE.DirectionalLight(0xfff0c7, 1.35);
+  escena3D.add(new THREE.HemisphereLight(0xbfe9ff, 0x42633c, 0.5));
+  const sol = new THREE.DirectionalLight(0xfff0c7, 0.5);
   sol.position.set(-300, 500, 200);
   escena3D.add(sol);
 
+  // Cielo con gradiente usando canvas 2D (estilo retro, sin glitches)
+  const canvasCielo = document.createElement("canvas");
+  canvasCielo.width = 16;
+  canvasCielo.height = 256;
+  const ctxCielo = canvasCielo.getContext("2d");
+  const gradiente = ctxCielo.createLinearGradient(0, 0, 0, 256);
+  gradiente.addColorStop(0, "#3a7bd5");
+  gradiente.addColorStop(0.5, "#6db3e8");
+  gradiente.addColorStop(1, "#c8e8f8");
+  ctxCielo.fillStyle = gradiente;
+  ctxCielo.fillRect(0, 0, 16, 256);
+  const texturaCielo = new THREE.CanvasTexture(canvasCielo);
+  texturaCielo.magFilter = THREE.NearestFilter;
+  texturaCielo.minFilter = THREE.NearestFilter;
+  escena3D.background = texturaCielo;
+
+  // Niebla para profundidad (estilo retro)
+  escena3D.fog = new THREE.Fog(0xc8e8f8, TAMAÑO_CELDA * 15, TAMAÑO_CELDA * 65);
+
+  inicializarTexturasSuelo();
+
   const cargador = new THREE.TextureLoader();
-  const cielo = cargador.load("textures/cielo.png");
-  cielo.magFilter = THREE.NearestFilter;
-  cielo.minFilter = THREE.NearestFilter;
-  escena3D.background = cielo;
 
   const texturaPared3D = cargador.load("textures/pared.png");
   texturaPared3D.wrapS = THREE.RepeatWrapping;
@@ -392,7 +425,7 @@ function inicializarEscena3D() {
         pared.position.set(x, TAMAÑO_CELDA / 2, z);
         escena3D.add(pared);
       } else if (MAPA[fila][columna] === 0 || MAPA[fila][columna] === 2) {
-        escena3D.add(crearBaldosaSuelo(cargador, fila, columna, x, z));
+        escena3D.add(crearBaldosaSuelo(fila, columna, x, z));
       }
     }
   }
@@ -433,7 +466,7 @@ function cargarCañaTiendaEnEscena() {
       const caja = new THREE.Box3().setFromObject(modeloCañaTienda);
       const centro = caja.getCenter(new THREE.Vector3());
       const tamaño = caja.getSize(new THREE.Vector3());
-      const escala = (TAMAÑO_CELDA * 1.35) / Math.max(tamaño.x, tamaño.y, tamaño.z);
+      const escala = (TAMAÑO_CELDA * 0.82) / Math.max(tamaño.x, tamaño.y, tamaño.z);
 
       modeloCañaTienda.position.sub(centro);
       modeloCañaTienda.scale.setScalar(escala);
@@ -447,27 +480,18 @@ function cargarCañaTiendaEnEscena() {
       mallaHitboxCaña.name = "HitboxCañaTienda";
       nodoRod.add(mallaHitboxCaña);
 
-      // Contenedor colocado frente a la tienda junto al soporte izquierdo
+      // Contenedor colocado dentro de la tienda
       grupoCañaTienda = new THREE.Group();
       grupoCañaTienda.add(modeloCañaTienda);
 
-      // ROTACIÓN: (Inclinación Adelante/Atrás, Giro Horizontal, Inclinación Lateral)
-      modeloCañaTienda.rotation.set(1.7, -0.1, 0.299);
+      // ROTACIÓN: Inclinada apoyada contra la pared interior
+      modeloCañaTienda.rotation.set(1.5, -0.25, 0.2);
 
-      // POSICIÓN DE LA CAÑA:
-      // X = IZQUIERDA / DERECHA:
-      //     - Restar positivo (ej: - TAMAÑO_CELDA * 0.4) la mueve a la IZQUIERDA.
-      //     - Sumar o restar negativo (ej: - TAMAÑO_CELDA * -0.4) la mueve a la DERECHA.
-      // Y = SUBE / BAJA:
-      //     - Aumentar el valor (ej: * 0.6) la SUBE hacia arriba.
-      //     - Disminuir el valor (ej: * 0.2) la BAJA hacia el suelo.
-      // Z = ACERCA / ALEJA (Profundidad frente a la tienda):
-      //     - Restar más (ej: - TAMAÑO_CELDA * 1.5) la ALEJA de la tienda (más cerca del jugador).
-      //     - Restar menos (ej: - TAMAÑO_CELDA * 0.2) la ACERCA/METE hacia adentro de la tienda.
+      // Posición dentro de la casa de pesca
       posicionBaseCaña.set(
-        TIENDA.posicion.x - TAMAÑO_CELDA * -0.73, // <-- Eje X (Izquierda / Derecha)
-        TAMAÑO_CELDA * 0.72,                     // <-- Eje Y (Sube / Baja)
-        TIENDA.posicion.y - TAMAÑO_CELDA * 1.02,  // <-- Eje Z (Acerca / Aleja)
+        TIENDA.posicion.x - 10,
+        38,
+        TIENDA.posicion.y - 44,
       );
 
       grupoCañaTienda.position.copy(posicionBaseCaña);
@@ -507,19 +531,18 @@ function actualizarAnimacionCañaTienda() {
 function mirandoCañaTienda() {
   if (!modeloCañaTienda || !camara3D || !TIENDA.posicion) return false;
 
-  const distJugador = p5.Vector.dist(jugador.posicion, TIENDA.posicion);
-  if (distJugador > TAMAÑO_CELDA * 4.0) return false;
+  const dx = jugador.posicion.x - posicionBaseCaña.x;
+  const dz = jugador.posicion.y - posicionBaseCaña.z;
+  const distJugador = Math.hypot(dx, dz);
+  if (distJugador > TAMAÑO_CELDA * 3.5) return false;
 
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(new THREE.Vector2(0, 0), camara3D);
 
-  // Raycast directo 3D sobre la caña y su volumen cilíndrico
-  const objetivos = mallaHitboxCaña ? [modeloCañaTienda, mallaHitboxCaña] : [modeloCañaTienda];
-  const intersecciones = raycaster.intersectObjects(objetivos, true);
+  const intersecciones = raycaster.intersectObject(modeloCañaTienda, true);
 
   for (let i = 0; i < intersecciones.length; i++) {
     const hit = intersecciones[i];
-    // Ignorar objetos no visibles como la línea 'Robe'
     if (hit.object && hit.object.name && hit.object.name.toLowerCase().includes("robe")) {
       continue;
     }
@@ -586,11 +609,11 @@ function equiparCañaBambu() {
 function cargarKiwifinaEnEscena() {
   if (!TIENDA.posicion) return;
 
-  const escalaRelativa = 1;
-  const offsetX = -TAMAÑO_CELDA * 0;
-  const offsetZ = -TAMAÑO_CELDA * -0.3;
-  const rotacionY = Math.PI;
-  const posYExtra = -TAMAÑO_CELDA * 0.5;
+  const escalaRelativa = 0.70; // Mismo tamaño que el jugador (altura ~45 unidades)
+  const offsetX = 28;
+  const offsetZ = -28;
+  const rotacionY = -Math.PI / 2;
+  const posYExtra = -5;
 
   const cargadorMTL = new THREE.MTLLoader();
   cargadorMTL.setPath("models/3D/");
@@ -766,60 +789,63 @@ function crearSuperficieLago() {
 
   if (maxColumna < 0) return;
 
-  // Agua: se pinta el Agua.gif en un canvas, recoloreándolo a tonos cian/azul
-  // (el gif viene en verde) y se anima desplazando la textura.
-  const lienzoAgua = document.createElement("canvas");
-  lienzoAgua.width = 64;
-  lienzoAgua.height = 16;
-  const contextoAgua = lienzoAgua.getContext("2d");
-  texturaAgua = new THREE.CanvasTexture(lienzoAgua);
-  texturaAgua.wrapS = THREE.RepeatWrapping;
-  texturaAgua.wrapT = THREE.RepeatWrapping;
-  texturaAgua.magFilter = THREE.NearestFilter;
-  texturaAgua.minFilter = THREE.NearestFilter;
-  texturaAgua.flipY = true;
-
   const ancho = (maxColumna - minColumna + 1) * TAMAÑO_CELDA;
   const profundidad = (maxFila - minFila + 1) * TAMAÑO_CELDA;
-  texturaAgua.repeat.set(
-    Math.max(1, ancho / 64),
-    Math.max(1, profundidad / 16),
-  );
 
-  const imagenAgua = new Image();
-  imagenAgua.onload = () => {
-    contextoAgua.drawImage(imagenAgua, 0, 0, 64, 16);
-    const datos = contextoAgua.getImageData(0, 0, 64, 16);
-    for (let i = 0; i < datos.data.length; i += 4) {
-      const luminancia =
-        (datos.data[i] * 0.299 +
-          datos.data[i + 1] * 0.587 +
-          datos.data[i + 2] * 0.114) /
-        255;
-      datos.data[i] = Math.round(8 + luminancia * 55);
-      datos.data[i + 1] = Math.round(96 + luminancia * 110);
-      datos.data[i + 2] = Math.round(180 + luminancia * 60);
-      datos.data[i + 3] = 255;
-    }
-    contextoAgua.putImageData(datos, 0, 0);
-    texturaAgua.needsUpdate = true;
-  };
-  imagenAgua.src = "textures/Agua.gif";
+  materialLago = new THREE.MeshStandardMaterial({
+    roughness: 0.2,
+    metalness: 0.05,
+    transparent: false,
+    depthWrite: true,
+    depthTest: true,
+    side: THREE.FrontSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+
+  fetch("textures/Agua.gif")
+    .then((r) => r.arrayBuffer())
+    .then((buf) => {
+      const rawFrames64 = decodificarFramesAgua(buf);
+      texturasAguaAnimacion = rawFrames64.map((frame64) => {
+        const lienzoLago = componerLienzoLagoParaFrame(
+          frame64,
+          minColumna,
+          maxColumna,
+          minFila,
+          maxFila,
+        );
+        const tex = new THREE.CanvasTexture(lienzoLago);
+        tex.wrapS = THREE.ClampToEdgeWrapping;
+        tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.magFilter = THREE.NearestFilter;
+        tex.minFilter = THREE.NearestFilter;
+        tex.repeat.set(1, 1);
+        return tex;
+      });
+      if (texturasAguaAnimacion.length > 0) {
+        texturaAgua = texturasAguaAnimacion[0];
+        materialLago.map = texturaAgua;
+        materialLago.needsUpdate = true;
+      }
+    })
+    .catch((err) => {
+      console.warn("Fallback carga textura agua:", err);
+      const cargador = new THREE.TextureLoader();
+      texturaAgua = cargador.load("textures/Agua.gif");
+      texturaAgua.wrapS = THREE.RepeatWrapping;
+      texturaAgua.wrapT = THREE.RepeatWrapping;
+      texturaAgua.magFilter = THREE.NearestFilter;
+      texturaAgua.minFilter = THREE.NearestFilter;
+      texturaAgua.repeat.set(ancho / 16, profundidad / 16);
+      materialLago.map = texturaAgua;
+      materialLago.needsUpdate = true;
+    });
 
   const lago = new THREE.Mesh(
     new THREE.PlaneGeometry(ancho, profundidad),
-    new THREE.MeshStandardMaterial({
-      map: texturaAgua,
-      color: 0x68c9d8,
-      emissive: 0x123d55,
-      emissiveIntensity: 0.22,
-      roughness: 0.18,
-      metalness: 0.08,
-      side: THREE.DoubleSide,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
-    }),
+    materialLago,
   );
 
   lago.rotation.x = -Math.PI / 2;
@@ -831,69 +857,441 @@ function crearSuperficieLago() {
   escena3D.add(lago);
 }
 
-// Desplaza la textura del agua en cada frame para que parezca que fluye.
+// Compone el mapa completo del lago (esquinas, bordes y centro de agua) para un frame del GIF
+function componerLienzoLagoParaFrame(frame64Canvas, minCol, maxCol, minF, maxF) {
+  const cols = maxCol - minCol + 1;
+  const filas = maxF - minF + 1;
+  const canvas = document.createElement("canvas");
+  canvas.width = cols * 16;
+  canvas.height = filas * 16;
+  const ctx = canvas.getContext("2d");
+
+  for (let fIdx = 0; fIdx < filas; fIdx++) {
+    for (let cIdx = 0; cIdx < cols; cIdx++) {
+      const f = minF + fIdx;
+      const c = minCol + cIdx;
+      if (MAPA[f] && MAPA[f][c] !== 3) continue;
+
+      const n = (f === minF || (MAPA[f - 1] && MAPA[f - 1][c] !== 3));
+      const s = (f === maxF || (MAPA[f + 1] && MAPA[f + 1][c] !== 3));
+      const o = (c === minCol || (MAPA[f] && MAPA[f][c - 1] !== 3));
+      const e = (c === maxCol || (MAPA[f] && MAPA[f][c + 1] !== 3));
+
+      const destX = cIdx * 16;
+      const destY = fIdx * 16;
+
+      function drawSubTile(sx, sy, rot = 0, flipX = false, flipY = false) {
+        ctx.save();
+        ctx.translate(destX + 8, destY + 8);
+        if (flipX) ctx.scale(-1, 1);
+        if (flipY) ctx.scale(1, -1);
+        if (rot !== 0) ctx.rotate(rot);
+        ctx.drawImage(frame64Canvas, sx, sy, 16, 16, -8, -8, 16, 16);
+        ctx.restore();
+      }
+
+      // Esquinas con transición de arena y espuma de Agua.gif (Tile 0, x: 0, y: 0)
+      if (n && o) {
+        drawSubTile(0, 0, 0); // Esquina Noroeste
+      } else if (n && e) {
+        drawSubTile(0, 0, 0, true, false); // Esquina Noreste
+      } else if (s && o) {
+        drawSubTile(0, 0, 0, false, true); // Esquina Suroeste
+      } else if (s && e) {
+        drawSubTile(0, 0, Math.PI); // Esquina Sureste
+      }
+      // Bordes rectos con orilla de arena y espuma (Tile 1, x: 16, y: 0)
+      else if (n) {
+        drawSubTile(16, 0, 0); // Borde Norte (arena arriba)
+      } else if (s) {
+        drawSubTile(16, 0, Math.PI); // Borde Sur (arena abajo)
+      } else if (o) {
+        drawSubTile(16, 0, -Math.PI / 2); // Borde Oeste (arena izquierda)
+      } else if (e) {
+        drawSubTile(16, 0, Math.PI / 2); // Borde Este (arena derecha)
+      }
+      // Centro de agua pura animada (Tile 3, x: 48, y: 0)
+      else {
+        drawSubTile(48, 0, 0);
+      }
+    }
+  }
+  return canvas;
+}
+
+// Decodifica los frames completos (64x16) del GIF original conservando sus 4 cuadrantes
+function decodificarFramesAgua(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const gctFlag = bytes[10] & 0x80;
+  const gctSize = gctFlag ? 3 * (1 << ((bytes[10] & 0x07) + 1)) : 0;
+  const paletaGlobal = [];
+  for (let i = 13; i < 13 + gctSize; i += 3) {
+    paletaGlobal.push([bytes[i], bytes[i + 1], bytes[i + 2]]);
+  }
+
+  function decodeLZW(minCodeSize, data, numPixels) {
+    let clearCode = 1 << minCodeSize;
+    let eoiCode = clearCode + 1;
+    let codeSize = minCodeSize + 1;
+    let codeMask = (1 << codeSize) - 1;
+    let dict = [];
+    function resetDict() {
+      dict = [];
+      for (let i = 0; i < clearCode; i++) dict[i] = [i];
+      dict[clearCode] = [];
+      dict[eoiCode] = null;
+      codeSize = minCodeSize + 1;
+      codeMask = (1 << codeSize) - 1;
+    }
+    resetDict();
+    let out = [];
+    let bitBuf = 0, bitCount = 0;
+    let dataPos = 0;
+    let prev = null;
+    while (out.length < numPixels && dataPos < data.length) {
+      while (bitCount < codeSize && dataPos < data.length) {
+        bitBuf |= (data[dataPos++] << bitCount);
+        bitCount += 8;
+      }
+      let code = bitBuf & codeMask;
+      bitBuf >>= codeSize;
+      bitCount -= codeSize;
+      if (code === clearCode) { resetDict(); prev = null; continue; }
+      if (code === eoiCode) break;
+      let entry = (code < dict.length) ? dict[code] : (code === dict.length && prev ? prev.concat(prev[0]) : null);
+      if (!entry) break;
+      for (let i = 0; i < entry.length; i++) out.push(entry[i]);
+      if (prev && dict.length < 4096) {
+        dict.push(prev.concat(entry[0]));
+        if (dict.length > codeMask && codeSize < 12) {
+          codeSize++;
+          codeMask = (1 << codeSize) - 1;
+        }
+      }
+      prev = entry;
+    }
+    return out;
+  }
+
+  let pos = 13 + gctSize;
+  const canvases = [];
+  while (pos < bytes.length) {
+    if (bytes[pos] === 0x3B) break;
+    if (bytes[pos] === 0x21) {
+      pos += 2;
+      while (pos < bytes.length && bytes[pos] !== 0) pos += 1 + bytes[pos];
+      pos++;
+    } else if (bytes[pos] === 0x2C) {
+      const w = bytes[pos + 5] | (bytes[pos + 6] << 8);
+      const h = bytes[pos + 7] | (bytes[pos + 8] << 8);
+      const packed = bytes[pos + 9];
+      const hasLct = packed & 0x80;
+      const lctSize = hasLct ? 3 * (1 << ((packed & 0x07) + 1)) : 0;
+      let paleta = paletaGlobal;
+      if (hasLct) {
+        paleta = [];
+        for (let i = pos + 10; i < pos + 10 + lctSize; i += 3) {
+          paleta.push([bytes[i], bytes[i + 1], bytes[i + 2]]);
+        }
+      }
+      pos += 10 + lctSize;
+      const minCodeSize = bytes[pos++];
+      const blocks = [];
+      while (pos < bytes.length && bytes[pos] !== 0) {
+        const len = bytes[pos++];
+        blocks.push(bytes.subarray(pos, pos + len));
+        pos += len;
+      }
+      pos++;
+      let totalLen = blocks.reduce((acc, b) => acc + b.length, 0);
+      let comp = new Uint8Array(totalLen);
+      let offset = 0;
+      for (let b of blocks) { comp.set(b, offset); offset += b.length; }
+      const indices = decodeLZW(minCodeSize, comp, w * h);
+
+      // Decodificar el frame completo de 64x16 con sus 4 tiles
+      const canvas = document.createElement("canvas");
+      canvas.width = 64;
+      canvas.height = 16;
+      const ctx = canvas.getContext("2d");
+      const imgData = ctx.createImageData(64, 16);
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 64; x++) {
+          const idx = indices[y * w + x];
+          const rgb = paleta[idx] || [56, 168, 244];
+          const outIdx = (y * 64 + x) * 4;
+          imgData.data[outIdx] = rgb[0];
+          imgData.data[outIdx + 1] = rgb[1];
+          imgData.data[outIdx + 2] = rgb[2];
+          imgData.data[outIdx + 3] = 255;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+      canvases.push(canvas);
+    } else {
+      pos++;
+    }
+  }
+  return canvases;
+}
+
+let texturasAguaAnimacion = [];
+let materialLago = null;
+let indiceFrameAgua = 0;
+let acumuladorTiempoAgua = 0;
+
+// Reproduce la animación real del GIF cuadro por cuadro
 function actualizarAgua() {
-  if (!texturaAgua) return;
-  texturaAgua.offset.x = (texturaAgua.offset.x + deltaTime * 0.00008) % 1;
+  if (!texturasAguaAnimacion || texturasAguaAnimacion.length <= 1) return;
+  acumuladorTiempoAgua += deltaTime;
+  if (acumuladorTiempoAgua >= 160) {
+    acumuladorTiempoAgua = 0;
+    indiceFrameAgua = (indiceFrameAgua + 1) % texturasAguaAnimacion.length;
+    materialLago.map = texturasAguaAnimacion[indiceFrameAgua];
+    materialLago.needsUpdate = true;
+  }
 }
 
 function cargarTiendaEnEscena() {
-  const cargadorOBJ = new THREE.OBJLoader();
-  cargadorOBJ.load(
-    "models/tienda/source/Tienda_02.obj",
-    (modelo) => {
-      const textura = new THREE.TextureLoader().load(
-        "models/tienda/textures/Tienda_02_initialShadingGroup_BaseColor.10.png",
-      );
-      textura.colorSpace = THREE.SRGBColorSpace;
+  const cargadorGLTF = new THREE.GLTFLoader();
+  cargadorGLTF.load(
+    "models/fishing_house/tiendaPesca.glb",
+    (gltf) => {
+      const modelo = gltf.scene;
 
       modelo.traverse((objeto) => {
-        if (!objeto.isMesh) return;
-        objeto.material = new THREE.MeshStandardMaterial({
-          map: textura,
-          roughness: 0.82,
-          metalness: 0,
-          side: THREE.DoubleSide,
-        });
+        if (objeto.name && objeto.name.toLowerCase().includes("water")) {
+          objeto.visible = false;
+        }
+        if (objeto.isMesh) {
+          objeto.castShadow = false;
+          objeto.receiveShadow = false;
+          if (objeto.material) {
+            objeto.material.side = THREE.DoubleSide;
+          }
+        }
       });
 
-      const caja = new THREE.Box3().setFromObject(modelo);
+      const caja = new THREE.Box3();
+      modelo.traverse((objeto) => {
+        if (objeto.isMesh && objeto.visible && !(objeto.name && objeto.name.toLowerCase().includes("water"))) {
+          caja.expandByObject(objeto);
+        }
+      });
+      if (caja.isEmpty()) {
+        caja.setFromObject(modelo);
+      }
+
       const centro = caja.getCenter(new THREE.Vector3());
-      const tamaño = caja.getSize(new THREE.Vector3());
-      const escala =
-        (TAMAÑO_CELDA * 1.5) / Math.max(tamaño.x, tamaño.y, tamaño.z);
+
+      // Escala proporcionada y adecuada para entrar a la casa
+      const escala = 19.0;
 
       modelo.position.sub(centro);
       modelo.scale.setScalar(escala);
-      modelo.rotation.y = Math.PI;
-      modelo.position.set(TIENDA.posicion.x, 0, TIENDA.posicion.y);
+      modelo.rotation.y = -Math.PI / 2;
+
+      // Nivelar para que el piso de madera quede exactamente al nivel del suelo caminable
+      const alturaPiso = (centro.y - caja.min.y) * escala - 226.5;
+      modelo.position.set(TIENDA.posicion.x, alturaPiso, TIENDA.posicion.y);
       escena3D.add(modelo);
       TIENDA.objetoMundo = modelo;
     },
     undefined,
-    (error) => console.error("No se pudo cargar la tienda 3D:", error),
+    (error) => console.error("No se pudo cargar la casa de pesca 3D:", error),
   );
 }
 
-function crearBaldosaSuelo(cargador, fila, columna, x, z) {
-  const textura = cargador.load("textures/Materiales_Suelo.png");
-  textura.wrapS = THREE.ClampToEdgeWrapping;
-  textura.wrapT = THREE.ClampToEdgeWrapping;
-  textura.magFilter = THREE.NearestFilter;
-  textura.minFilter = THREE.NearestFilter;
-  // una sola baldosa plana por celda; invertido: la costa es arena y el resto pasto
-  textura.repeat.set(1 / 5, 1 / 2);
-  textura.offset.set(0, esArenaEnCosta(fila, columna) ? 0 : 0.5);
-  const material = new THREE.MeshBasicMaterial({
-    map: textura,
-    side: THREE.DoubleSide,
-  });
+const materialesSueloCache = new Map();
+let imagenSueloOriginal = null;
+let texturaSueloCargada = false;
+
+function clasificarTerreno(f, c) {
+  if (f < 0 || c < 0 || f >= MAPA_ALTO || c >= MAPA_ANCHO) return "pared";
+  if (MAPA[f][c] === 1) return "pared";
+  if (MAPA[f][c] === 3) return "agua";
+  if (MAPA[f][c] === 2) return "arena";
+  if (obtenerSuelo(f, c) === 5) return "tierra";
+  return "pasto";
+}
+
+function obtenerClaveBaldosa(f, c) {
+  const tipo = clasificarTerreno(f, c);
+
+  if (tipo === "pasto") {
+    const N = (clasificarTerreno(f - 1, c) === "tierra" || clasificarTerreno(f - 1, c) === "arena");
+    const S = (clasificarTerreno(f + 1, c) === "tierra" || clasificarTerreno(f + 1, c) === "arena");
+    const O = (clasificarTerreno(f, c - 1) === "tierra" || clasificarTerreno(f, c - 1) === "arena");
+    const E = (clasificarTerreno(f, c + 1) === "tierra" || clasificarTerreno(f, c + 1) === "arena");
+
+    // Esquinas interiores (cóncavas): dos bordes cardinales tocan tierra -> casi toda la celda es tierra y solo una punta es pasto
+    if (S && E) return "pasto_esq_int_NO"; // Punta de pasto en Noroeste
+    if (S && O) return "pasto_esq_int_NE"; // Punta de pasto en Noreste
+    if (N && E) return "pasto_esq_int_SO"; // Punta de pasto en Suroeste
+    if (N && O) return "pasto_esq_int_SE"; // Punta de pasto en Sureste
+
+    // Bordes rectos
+    if (S) return "pasto_borde_S";
+    if (N) return "pasto_borde_N";
+    if (E) return "pasto_borde_E";
+    if (O) return "pasto_borde_O";
+
+    // Esquinas exteriores (convexas): lados cardinales son pasto, pero una diagonal toca tierra
+    const NE = (clasificarTerreno(f - 1, c + 1) === "tierra" || clasificarTerreno(f - 1, c + 1) === "arena");
+    const NO = (clasificarTerreno(f - 1, c - 1) === "tierra" || clasificarTerreno(f - 1, c - 1) === "arena");
+    const SE = (clasificarTerreno(f + 1, c + 1) === "tierra" || clasificarTerreno(f + 1, c + 1) === "arena");
+    const SO = (clasificarTerreno(f + 1, c - 1) === "tierra" || clasificarTerreno(f + 1, c - 1) === "arena");
+
+    if (SE) return "pasto_esq_ext_SE"; // Tierra en la esquina Sureste
+    if (SO) return "pasto_esq_ext_SO"; // Tierra en la esquina Suroeste
+    if (NE) return "pasto_esq_ext_NE"; // Tierra en la esquina Noreste
+    if (NO) return "pasto_esq_ext_NO"; // Tierra en la esquina Noroeste
+
+    return "pasto_puro";
+  }
+
+  if (tipo === "arena") {
+    const N = (clasificarTerreno(f - 1, c) === "tierra" || clasificarTerreno(f - 1, c) === "pasto");
+    const S = (clasificarTerreno(f + 1, c) === "tierra" || clasificarTerreno(f + 1, c) === "pasto");
+    const O = (clasificarTerreno(f, c - 1) === "tierra" || clasificarTerreno(f, c - 1) === "pasto");
+    const E = (clasificarTerreno(f, c + 1) === "tierra" || clasificarTerreno(f, c + 1) === "pasto");
+
+    if (S && E) return "arena_esq_int_NO";
+    if (S && O) return "arena_esq_int_NE";
+    if (N && E) return "arena_esq_int_SO";
+    if (N && O) return "arena_esq_int_SE";
+
+    if (S) return "arena_borde_S";
+    if (N) return "arena_borde_N";
+    if (E) return "arena_borde_E";
+    if (O) return "arena_borde_O";
+
+    const NE = (clasificarTerreno(f - 1, c + 1) === "tierra" || clasificarTerreno(f - 1, c + 1) === "pasto");
+    const NO = (clasificarTerreno(f - 1, c - 1) === "tierra" || clasificarTerreno(f - 1, c - 1) === "pasto");
+    const SE = (clasificarTerreno(f + 1, c + 1) === "tierra" || clasificarTerreno(f + 1, c + 1) === "pasto");
+    const SO = (clasificarTerreno(f + 1, c - 1) === "tierra" || clasificarTerreno(f + 1, c - 1) === "pasto");
+
+    if (SE) return "arena_esq_ext_SE";
+    if (SO) return "arena_esq_ext_SO";
+    if (NE) return "arena_esq_ext_NE";
+    if (NO) return "arena_esq_ext_NO";
+
+    return "arena_pura";
+  }
+
+  return "tierra_pura";
+}
+
+function renderizarTileEnCanvas(ctx, img, clave) {
+  function draw(sx, sy, rot = 0, flipX = false, flipY = false) {
+    ctx.save();
+    ctx.translate(8, 8);
+    if (flipX) ctx.scale(-1, 1);
+    if (flipY) ctx.scale(1, -1);
+    if (rot !== 0) ctx.rotate(rot);
+    ctx.drawImage(img, sx, sy, 16, 16, -8, -8, 16, 16);
+    ctx.restore();
+  }
+
+  ctx.clearRect(0, 0, 16, 16);
+
+  if (clave === "pasto_puro") {
+    draw(0, 0);
+  } else if (clave === "arena_pura") {
+    draw(0, 16);
+  } else if (clave === "tierra_pura") {
+    draw(64, 0);
+  } else if (clave.startsWith("pasto_")) {
+    draw(64, 0); // Fondo de tierra
+
+    // Bordes rectos de pasto (Tile 2, x: 32, y: 0)
+    if (clave === "pasto_borde_S") draw(32, 0, 0);
+    else if (clave === "pasto_borde_N") draw(32, 0, Math.PI);
+    else if (clave === "pasto_borde_E") draw(32, 0, -Math.PI / 2);
+    else if (clave === "pasto_borde_O") draw(32, 0, Math.PI / 2);
+
+    // Esquinas exteriores (convexas) (Tile 1, x: 16, y: 0): mayormente pasto con esquina de tierra
+    else if (clave === "pasto_esq_ext_SE") draw(16, 0, 0);
+    else if (clave === "pasto_esq_ext_SO") draw(16, 0, 0, true, false);
+    else if (clave === "pasto_esq_ext_NE") draw(16, 0, 0, false, true);
+    else if (clave === "pasto_esq_ext_NO") draw(16, 0, Math.PI);
+
+    // Esquinas interiores (cóncavas) (Tile 3, x: 48, y: 0): mayormente tierra con esquina de pasto
+    else if (clave === "pasto_esq_int_NO") draw(48, 0, 0);
+    else if (clave === "pasto_esq_int_NE") draw(48, 0, 0, true, false);
+    else if (clave === "pasto_esq_int_SO") draw(48, 0, 0, false, true);
+    else if (clave === "pasto_esq_int_SE") draw(48, 0, Math.PI);
+
+    else draw(0, 0);
+  } else if (clave.startsWith("arena_")) {
+    draw(64, 0); // Fondo de tierra
+
+    if (clave === "arena_borde_S") draw(32, 16, 0);
+    else if (clave === "arena_borde_N") draw(32, 16, Math.PI);
+    else if (clave === "arena_borde_E") draw(32, 16, -Math.PI / 2);
+    else if (clave === "arena_borde_O") draw(32, 16, Math.PI / 2);
+
+    else if (clave === "arena_esq_ext_SE") draw(16, 16, 0);
+    else if (clave === "arena_esq_ext_SO") draw(16, 16, 0, true, false);
+    else if (clave === "arena_esq_ext_NE") draw(16, 16, 0, false, true);
+    else if (clave === "arena_esq_ext_NO") draw(16, 16, Math.PI);
+
+    else if (clave === "arena_esq_int_NO") draw(48, 16, 0);
+    else if (clave === "arena_esq_int_NE") draw(48, 16, 0, true, false);
+    else if (clave === "arena_esq_int_SO") draw(48, 16, 0, false, true);
+    else if (clave === "arena_esq_int_SE") draw(48, 16, Math.PI);
+
+    else draw(0, 16);
+  }
+}
+
+function inicializarTexturasSuelo() {
+  if (imagenSueloOriginal) return;
+
+  imagenSueloOriginal = new Image();
+  imagenSueloOriginal.onload = () => {
+    texturaSueloCargada = true;
+    for (const [clave, item] of materialesSueloCache.entries()) {
+      renderizarTileEnCanvas(item.canvas.getContext("2d"), imagenSueloOriginal, clave);
+      item.texture.needsUpdate = true;
+    }
+  };
+  imagenSueloOriginal.src = "textures/Materiales_Suelo.png";
+}
+
+function obtenerMaterialBaldosa(clave) {
+  if (materialesSueloCache.has(clave)) {
+    return materialesSueloCache.get(clave).material;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = 16;
+  canvas.height = 16;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+
+  const mat = new THREE.MeshLambertMaterial({ map: tex });
+  materialesSueloCache.set(clave, { material: mat, texture: tex, canvas: canvas });
+
+  if (imagenSueloOriginal && texturaSueloCargada) {
+    renderizarTileEnCanvas(canvas.getContext("2d"), imagenSueloOriginal, clave);
+    tex.needsUpdate = true;
+  }
+  return mat;
+}
+
+function crearBaldosaSuelo(fila, columna, x, z) {
+  const clave = obtenerClaveBaldosa(fila, columna);
+  const mat = obtenerMaterialBaldosa(clave);
+
   const baldosa = new THREE.Mesh(
     new THREE.PlaneGeometry(TAMAÑO_CELDA, TAMAÑO_CELDA),
-    material,
+    mat,
   );
   baldosa.rotation.x = -Math.PI / 2;
-  baldosa.position.set(x, -0.02, z);
+  baldosa.position.set(x, 0, z);
   return baldosa;
 }
 
@@ -930,6 +1328,8 @@ function actualizarCamara3D() {
     jugador.posicion.y,
   );
   camara3D.rotation.set(jugador.inclinacion, -jugador.angulo - Math.PI / 2, 0);
+
+
 }
 
 function windowResized() {
