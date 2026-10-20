@@ -10,7 +10,6 @@ d 1.000000
 illum 2
 Pr 0.400000
 Pm 0.000000
-map_Kd Bot.png
 
 newmtl Gradiant
 Kd 0.800000 0.800000 0.800000
@@ -21,7 +20,6 @@ d 1.000000
 illum 2
 Pr 0.400000
 Pm 0.000000
-map_Kd Gradiantes.png
 
 newmtl KiwiFace
 Kd 0.800000 0.800000 0.800000
@@ -32,4 +30,3 @@ d 1.000000
 illum 2
 Pr 0.400000
 Pm 0.000000
-map_Kd CaraKIWIFINAL.png
