@@ -275,7 +275,7 @@ class SistemaCaptura {
       noStroke();
       textAlign(CENTER, CENTER);
       textSize(13);
-      text("Espera la mordida — [SPACE] para enganchar", cx, height * 0.82);
+      text("Espera la mordida — [SPACE] enganchar · [F] recoger", cx, height * 0.82);
     }
 
     if (textoMsg) {

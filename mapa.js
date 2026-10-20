@@ -56,6 +56,16 @@ function esPared(celdaX, celdaY) {
   return MAPA[celdaY][celdaX] === 1;
 }
 
+function esAgua(celdaX, celdaY) {
+  return (
+    celdaX >= 0 &&
+    celdaY >= 0 &&
+    celdaX < MAPA_ANCHO &&
+    celdaY < MAPA_ALTO &&
+    MAPA[celdaY][celdaX] === 3
+  );
+}
+
 //
 //   0 = pasto
 //   5 = tierra
