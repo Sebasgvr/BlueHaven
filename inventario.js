@@ -14,8 +14,22 @@ let menuTienda = "cerrado";
 let mensajeHUD = "";
 let timerMensaje = 0;
 
+function precioBaseDe(pez) {
+  return (pez && PRECIOS_POR_RAREZA[pez.rareza]) || 10;
+}
+
+// El precio se fija una sola vez por ejemplar.
+function calcularPrecio(pez) {
+  if (pez && typeof pez.precio === "number" && pez.precio > 0) {
+    return pez.precio;
+  }
+  const multiplicador = (pez && pez.multiplicadorCalidad) || 1;
+  const bonus = pez && pez.capturaRiesgo ? BONUS_RIESGO : 1;
+  return Math.round(precioBaseDe(pez) * multiplicador * bonus);
+}
+
 function precioDe(pez) {
-  return PRECIOS_POR_RAREZA[pez.rareza] || 10;
+  return calcularPrecio(pez);
 }
 
 function mostrarMensaje(texto) {
@@ -24,15 +38,23 @@ function mostrarMensaje(texto) {
 }
 
 function agregarPez(pez) {
-  if (inventario.length >= MAX_RANURAS) {
-    mostrarMensaje("Mochila llena. Andá a vender a la tienda.");
-    return false;
-  }
-  inventario.push({
+  const ejemplar = {
     nombre: pez.nombre,
     rareza: pez.rareza,
     sprite: pez.sprite || null,
-  });
+    calidadId: pez.calidadId || "comun",
+    multiplicadorCalidad: pez.multiplicadorCalidad || 1,
+    capturaRiesgo: !!pez.capturaRiesgo,
+    precio: calcularPrecio(pez),
+  };
+
+  if (inventario.length >= MAX_RANURAS) {
+    // Ya quedó en la enciclopedia; solo no entra a la mochila.
+    mostrarMensaje("Mochila llena: el ejemplar quedó en la enciclopedia.");
+    return false;
+  }
+
+  inventario.push(ejemplar);
   return true;
 }
 
@@ -45,9 +67,10 @@ function valorTotalInventario() {
 function venderPez(indice) {
   if (indice < 0 || indice >= inventario.length) return;
   const pez = inventario[indice];
-  dinero += precioDe(pez);
+  const precio = precioDe(pez);
+  dinero += precio;
   inventario.splice(indice, 1);
-  mostrarMensaje("Vendiste " + pez.nombre + " por $" + precioDe(pez));
+  mostrarMensaje("Vendiste " + pez.nombre + " por $" + precio);
 }
 
 function venderTodos() {
@@ -183,18 +206,27 @@ function _dibujarPezFila(pez, x, y, w, h) {
   if (sprite) {
     image(sprite, x + 8, y + 2, h - 4, h - 4);
   }
+
   fill(255);
   textSize(14);
   textAlign(LEFT, CENTER);
   const anchoNombre = textWidth(pez.nombre);
   text(pez.nombre, x + 42, y + h / 2);
+
   fill(255, 200, 60);
-  textSize(12);
+  textSize(9);
   let estrellas = "";
   for (let e = 0; e < pez.rareza; e++) estrellas += "*";
-  text(estrellas, x + 42 + anchoNombre + 8, y + h / 2);
+  text(estrellas, x + 42 + anchoNombre + 6, y + h / 2);
+
+  const calidad = calidadDe(pez);
+  dibujarEtiquetaCalidad(calidad, x + w - 108, y + h / 2, 10, "derecha");
+
   fill(255, 230, 150);
-  text("$" + precioDe(pez), x + w - 130, y + h / 2);
+  textSize(12);
+  textAlign(RIGHT, CENTER);
+  text("$" + precioDe(pez), x + w - 8, y + h / 2);
+
   textAlign(LEFT, BASELINE);
 }
 
@@ -332,12 +364,16 @@ function comprarCañaTienda() {
     return;
   }
   if (dinero < PRECIO_CAÑA_TIENDA) {
-    mostrarMensaje("No tenés suficiente dinero ($" + PRECIO_CAÑA_TIENDA + " necesarios).");
+    mostrarMensaje(
+      "No tenés suficiente dinero ($" + PRECIO_CAÑA_TIENDA + " necesarios).",
+    );
     return;
   }
   dinero -= PRECIO_CAÑA_TIENDA;
   tieneCañaBambu = true;
-  mostrarMensaje("¡Compraste la Caña de Bambú por $" + PRECIO_CAÑA_TIENDA + "!");
+  mostrarMensaje(
+    "¡Compraste la Caña de Bambú por $" + PRECIO_CAÑA_TIENDA + "!",
+  );
   if (typeof equiparCañaBambu === "function") {
     equiparCañaBambu();
   }
@@ -384,7 +420,11 @@ function dibujarPanelComprarCaña() {
 
   fill(255, 215, 80);
   textSize(14);
-  text("Precio: $" + PRECIO_CAÑA_TIENDA + "  (Tenés: $" + dinero + ")", p.x + p.w / 2, p.y + 154);
+  text(
+    "Precio: $" + PRECIO_CAÑA_TIENDA + "  (Tenés: $" + dinero + ")",
+    p.x + p.w / 2,
+    p.y + 154,
+  );
 
   const btnW = 140;
   const btnH = 34;
@@ -400,7 +440,11 @@ function dibujarPanelComprarCaña() {
   noStroke();
   textAlign(CENTER, CENTER);
   textSize(13);
-  text(tieneCañaBambu ? "Comprada" : "Comprar [E]", btnComprar.x + btnComprar.w / 2, btnComprar.y + btnComprar.h / 2);
+  text(
+    tieneCañaBambu ? "Comprada" : "Comprar [E]",
+    btnComprar.x + btnComprar.w / 2,
+    btnComprar.y + btnComprar.h / 2,
+  );
   pop();
 
   const btnCancelar = { x: p.x + p.w - btnW - 24, y: btnY, w: btnW, h: btnH };
@@ -413,7 +457,11 @@ function dibujarPanelComprarCaña() {
   noStroke();
   textAlign(CENTER, CENTER);
   textSize(13);
-  text("Cancelar [Q]", btnCancelar.x + btnCancelar.w / 2, btnCancelar.y + btnCancelar.h / 2);
+  text(
+    "Cancelar [Q]",
+    btnCancelar.x + btnCancelar.w / 2,
+    btnCancelar.y + btnCancelar.h / 2,
+  );
   pop();
 
   pop();
@@ -427,10 +475,11 @@ function manejarClicComprarCaña(x, y) {
   const btnComprar = { x: p.x + 24, y: btnY, w: btnW, h: btnH };
   const btnCancelar = { x: p.x + p.w - btnW - 24, y: btnY, w: btnW, h: btnH };
 
-  const dentro = (r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  const dentro = (r) =>
+    x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
   if (dentro(btnComprar)) {
     comprarCañaTienda();
   } else if (dentro(btnCancelar)) {
     cerrarMenu();
   }
-}
+}

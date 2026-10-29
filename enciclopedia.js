@@ -212,12 +212,20 @@ function dibujarEnciclopedia() {
     textSize(14);
     text(pez.nombre, listaX + 44, y + (itemAlto - 4) / 2);
 
-    // Rareza (estrellas)
     fill(255, 200, 50);
     textSize(10);
+    textAlign(RIGHT, CENTER);
     let estrellas = "";
     for (let e = 0; e < pez.rareza; e++) estrellas += "*";
-    text(estrellas, listaX + listaAncho - 30, y + (itemAlto - 4) / 2);
+    text(estrellas, listaX + listaAncho - 14, y + (itemAlto - 4) / 2);
+    textAlign(LEFT, CENTER);
+
+    const registro = registroDe(pez.nombre);
+    if (registro && registro.mejorCalidadId) {
+      const mejor = CALIDAD_POR_ID[registro.mejorCalidadId];
+      fill(mejor.color[0], mejor.color[1], mejor.color[2]);
+      circle(listaX + listaAncho - 6, y + (itemAlto - 4) / 2, 8);
+    }
   }
 
   // === LADO DERECHO: Detalles del pez ===
@@ -273,6 +281,22 @@ function dibujarEnciclopedia() {
     text(valor, detX + 110, infoY);
     infoY += lineaAlto;
   }
+
+  // Colección y mejor ejemplar del jugador.
+  const registro = registroDe(pez.nombre);
+  const mejor = mejorCalidadDe(pez.nombre);
+  fill(100, 70, 40);
+  text("Registro:", detX, infoY);
+  fill(60, 40, 20);
+  text(
+    registro ? registro.capturas + " capturas" : "Sin capturas",
+    detX + 110,
+    infoY,
+  );
+  if (mejor) {
+    dibujarEtiquetaCalidad(mejor, detX + 205, infoY + 8, 9, "izquierda");
+  }
+  infoY += lineaAlto;
 
   // Descripción
   infoY += 10;
