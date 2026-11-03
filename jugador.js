@@ -49,7 +49,7 @@ class Jugador {
       for (let py of puntosY) {
         const cx = floor(px / TAMAÑO_CELDA);
         const cy = floor(py / TAMAÑO_CELDA);
-        if (esPared(cx, cy) || tiendaColisiona(pos)) return true;
+        if (esPared(cx, cy) || esAgua(cx, cy) || tiendaColisiona(pos)) return true;
       }
     }
     return false;
