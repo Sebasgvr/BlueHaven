@@ -3,6 +3,13 @@ const PECES_CAPTURA = [
   { nombre: "Trucha Arcoíris", rareza: 2, velocidad: 1.8, peso: 22 },
   { nombre: "Atún", rareza: 2, velocidad: 2.3, sprite: "Atun.png", peso: 18 },
   {
+    nombre: "Pez Globo",
+    rareza: 2,
+    velocidad: 2.0,
+    sprite: "Pez_Globo.png",
+    peso: 16,
+  },
+  {
     nombre: "Calamar",
     rareza: 3,
     velocidad: 3.1,

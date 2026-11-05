@@ -111,6 +111,65 @@ function dibujarEtiquetaCalidad(calidad, x, y, tam, alineacion) {
 
 // Colección en memoria: capturas y mejor ejemplar por especie.
 const REGISTRO_CAPTURAS = {};
+const CLAVE_STORAGE = "BLUEHAVEN_PROGRESO_V1";
+
+function guardarProgresoLocal() {
+  try {
+    const datos = {
+      registro: REGISTRO_CAPTURAS,
+      dinero: typeof dinero !== "undefined" ? dinero : 0,
+      inventario: typeof inventario !== "undefined" ? inventario : [],
+      tieneCañaBambu:
+        typeof tieneCañaBambu !== "undefined" ? tieneCañaBambu : false,
+    };
+    localStorage.setItem(CLAVE_STORAGE, JSON.stringify(datos));
+  } catch (e) {
+    console.warn("No se pudo guardar progreso en localStorage:", e);
+  }
+}
+
+function cargarProgresoLocal() {
+  try {
+    const raw = localStorage.getItem(CLAVE_STORAGE);
+    if (!raw) return;
+    const datos = JSON.parse(raw);
+    if (datos && typeof datos === "object") {
+      if (datos.registro && typeof datos.registro === "object") {
+        Object.assign(REGISTRO_CAPTURAS, datos.registro);
+      }
+      if (typeof datos.dinero === "number" && typeof dinero !== "undefined") {
+        dinero = datos.dinero;
+      }
+      if (
+        Array.isArray(datos.inventario) &&
+        typeof inventario !== "undefined"
+      ) {
+        inventario.length = 0;
+        for (const item of datos.inventario) inventario.push(item);
+      }
+      if (
+        typeof datos.tieneCañaBambu === "boolean" &&
+        typeof tieneCañaBambu !== "undefined"
+      ) {
+        tieneCañaBambu = datos.tieneCañaBambu;
+      }
+    }
+  } catch (e) {
+    console.warn("No se pudo cargar progreso de localStorage:", e);
+  }
+}
+
+function reiniciarProgresoLocal() {
+  try {
+    localStorage.removeItem(CLAVE_STORAGE);
+  } catch (e) {}
+  for (const k in REGISTRO_CAPTURAS) delete REGISTRO_CAPTURAS[k];
+  if (typeof dinero !== "undefined") dinero = 0;
+  if (typeof inventario !== "undefined") inventario.length = 0;
+  if (typeof tieneCañaBambu !== "undefined") tieneCañaBambu = false;
+  if (typeof mostrarMensaje === "function")
+    mostrarMensaje("Progreso reiniciado.");
+}
 
 function registrarCaptura(pez) {
   if (!pez || !pez.nombre) return;
@@ -140,6 +199,7 @@ function registrarCaptura(pez) {
   }
 
   REGISTRO_CAPTURAS[pez.nombre] = registro;
+  guardarProgresoLocal();
 }
 
 function registroDe(nombre) {

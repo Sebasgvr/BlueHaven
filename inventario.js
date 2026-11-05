@@ -49,12 +49,12 @@ function agregarPez(pez) {
   };
 
   if (inventario.length >= MAX_RANURAS) {
-    // Ya quedó en la enciclopedia; solo no entra a la mochila.
-    mostrarMensaje("Mochila llena: el ejemplar quedó en la enciclopedia.");
+    mostrarMensaje("Mochila llena: pez registrado en enciclopedia (liberado).");
     return false;
   }
 
   inventario.push(ejemplar);
+  if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
   return true;
 }
 
@@ -71,6 +71,7 @@ function venderPez(indice) {
   dinero += precio;
   inventario.splice(indice, 1);
   mostrarMensaje("Vendiste " + pez.nombre + " por $" + precio);
+  if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
 }
 
 function venderTodos() {
@@ -79,6 +80,7 @@ function venderTodos() {
   dinero += total;
   inventario.length = 0;
   mostrarMensaje("Vendiste todo por $" + total);
+  if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
 }
 
 function abrirMenuTienda() {
@@ -377,6 +379,7 @@ function comprarCañaTienda() {
   if (typeof equiparCañaBambu === "function") {
     equiparCañaBambu();
   }
+  if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
   cerrarMenu();
 }
 

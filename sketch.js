@@ -35,12 +35,16 @@ function preload() {
   spritesPeces["Ballena_azul.png"] = loadImage(
     "textures/peces/Ballena_azul.png",
   );
+  spritesPeces["Pez_Globo.png"] = loadImage("textures/peces/Pez_Globo.png");
 }
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
   clear();
   pixelDensity(1);
+  document.addEventListener("wheel", manejarRuedaEnciclopedia, {
+    passive: false,
+  });
   const interfaz = document.querySelector("canvas");
   interfaz.style.position = "fixed";
   interfaz.style.inset = "0";
@@ -51,47 +55,72 @@ function setup() {
 
   sistemaCaptura = new SistemaCaptura();
   TIENDA.posicion = createVector(TAMAÑO_CELDA * 28.5, TAMAÑO_CELDA * 19);
+  if (typeof cargarProgresoLocal === "function") cargarProgresoLocal();
   inicializarEscena3D();
 }
 
 function draw() {
   clear();
 
-  if (
-    sistemaCaptura.estado === "inactivo" &&
-    menuTienda === "cerrado" &&
-    estadoLanzamiento === "reposo"
-  ) {
-    jugador.actualizar();
+  const guiaActiva =
+    typeof bienvenidaActiva === "function" && bienvenidaActiva();
+
+  // Ocultar la caña del jugador mientras esté la Guía del Pescador
+  if (cañaPesca) {
+    cañaPesca.visible = !guiaActiva;
+  }
+  if (lineaPesca && guiaActiva) lineaPesca.visible = false;
+  if (anzueloPesca && guiaActiva) anzueloPesca.visible = false;
+
+  // Bloquear toda interacción del jugador mientras la bienvenida esté activa
+  if (!guiaActiva) {
+    if (
+      sistemaCaptura.estado === "inactivo" &&
+      menuTienda === "cerrado" &&
+      estadoLanzamiento === "reposo"
+    ) {
+      jugador.actualizar();
+    }
+
+    actualizarEncuadrePesca(Math.min(deltaTime / 1000, 0.05));
+    actualizarCamara3D();
+    actualizarLanzamientoAnzuelo();
+    actualizarFlotadorPesca(Math.min(deltaTime / 1000, 0.05));
+    actualizarCañaPesca();
+    actualizarAgua();
+    actualizarAnimacionCañaTienda();
+  } else {
+    // Si la guía está activa, mantener agua y cámara vivas de fondo
+    actualizarCamara3D();
+    actualizarAgua();
+    actualizarAnimacionCañaTienda();
   }
 
-  actualizarEncuadrePesca(Math.min(deltaTime / 1000, 0.05));
-  actualizarCamara3D();
-  actualizarLanzamientoAnzuelo();
-  actualizarFlotadorPesca(Math.min(deltaTime / 1000, 0.05));
-  actualizarCañaPesca();
-  actualizarAgua();
-  actualizarAnimacionCañaTienda();
   renderizador3D.render(escena3D, camara3D);
 
-  sistemaCaptura.actualizar();
-  sistemaCaptura.dibujar();
+  if (!guiaActiva) {
+    sistemaCaptura.actualizar();
+    sistemaCaptura.dibujar();
 
-  if (menuTienda !== "cerrado") {
-    if (menuTienda === "tienda") dibujarPanelVenta();
-    else if (menuTienda === "comprar_caña") dibujarPanelComprarCaña();
-    else dibujarPanelInventario();
-  } else if (sistemaCaptura.estado === "inactivo") {
-    if (mirandoCañaTienda()) dibujarIndicadorCañaTienda();
-    else if (cercaDelAgua()) dibujarIndicadorPesca();
-    else if (cercaDeTienda()) dibujarIndicadorTienda();
+    if (menuTienda !== "cerrado") {
+      if (menuTienda === "tienda") dibujarPanelVenta();
+      else if (menuTienda === "comprar_caña") dibujarPanelComprarCaña();
+      else dibujarPanelInventario();
+    } else if (sistemaCaptura.estado === "inactivo") {
+      if (mirandoCañaTienda()) dibujarIndicadorCañaTienda();
+      else if (cercaDelAgua()) dibujarIndicadorPesca();
+      else if (cercaDeTienda()) dibujarIndicadorTienda();
+    }
+
+    dibujarHUD();
+
+    if (ratonBloqueado) dibujarPuntero();
+
+    dibujarEnciclopedia();
   }
 
-  dibujarHUD();
-
-  if (ratonBloqueado) dibujarPuntero();
-
-  dibujarEnciclopedia();
+  // La bienvenida siempre se dibuja encima de todo
+  dibujarBienvenida();
 }
 
 function mouseMoved(evento) {
@@ -99,6 +128,10 @@ function mouseMoved(evento) {
 }
 
 function moverCamaraConMouse(evento) {
+  if (ENCICLOPEDIA.abierta) {
+    actualizarHoverEnciclopedia(evento.clientX, evento.clientY);
+    return;
+  }
   if (!ratonBloqueado || sistemaCaptura.estado !== "inactivo") return;
 
   jugador.girarMouse(evento.movementX);
@@ -190,12 +223,30 @@ function dibujarIndicadorPesca() {
 }
 
 function keyPressed() {
+  // Cerrar la pantalla de bienvenida con cualquier tecla
+  if (bienvenidaActiva()) {
+    cerrarBienvenida();
+    return false;
+  }
+
   // Si la enciclopedia está abierta, capturar todas las teclas
   if (ENCICLOPEDIA.abierta) {
-    if (key === "w" || key === "W" || keyCode === UP_ARROW)
-      navegarEnciclopedia(-1);
-    else if (key === "s" || key === "S" || keyCode === DOWN_ARROW)
-      navegarEnciclopedia(1);
+    const anterior =
+      key === "w" ||
+      key === "W" ||
+      keyCode === UP_ARROW ||
+      key === "a" ||
+      key === "A" ||
+      keyCode === LEFT_ARROW;
+    const siguiente =
+      key === "s" ||
+      key === "S" ||
+      keyCode === DOWN_ARROW ||
+      key === "d" ||
+      key === "D" ||
+      keyCode === RIGHT_ARROW;
+    if (anterior) navegarEnciclopedia(-1);
+    else if (siguiente) navegarEnciclopedia(1);
     else if (
       key === "e" ||
       key === "E" ||
@@ -328,6 +379,16 @@ function mouseReleased() {
 }
 
 function controlarClicEscena(evento) {
+  // Cerrar la pantalla de bienvenida con clic
+  if (bienvenidaActiva()) {
+    cerrarBienvenida();
+    return;
+  }
+
+  if (ENCICLOPEDIA.abierta) {
+    manejarClicEnciclopedia(evento.clientX, evento.clientY);
+    return;
+  }
   if (menuTienda === "tienda") {
     manejarClicVenta(evento.clientX, evento.clientY);
     return;
@@ -781,6 +842,9 @@ function equiparCañaBambu() {
       });
       modelo.renderOrder = 20;
       cañaPesca.add(modelo);
+      if (typeof tieneCañaBambu !== "undefined" && tieneCañaBambu) {
+        equiparCañaBambu();
+      }
     },
     undefined,
     (error) => console.error("No se pudo equipar la caña de bambú:", error),
@@ -847,7 +911,8 @@ function cargarKiwifinaEnEscena() {
 
 function cargarCañaPesca() {
   cañaPesca = new THREE.Group();
-  cañaPesca.visible = true;
+  cañaPesca.visible =
+    typeof bienvenidaActiva === "function" ? !bienvenidaActiva() : true;
   escena3D.add(cañaPesca);
 
   // Este grupo vive en el mundo, no en la cámara: así el flotador no gira con la mirada.
@@ -876,6 +941,9 @@ function cargarCañaPesca() {
       });
       modelo.renderOrder = 20;
       cañaPesca.add(modelo);
+      if (typeof tieneCañaBambu !== "undefined" && tieneCañaBambu) {
+        equiparCañaBambu();
+      }
     },
     undefined,
     (error) => console.error("No se pudo cargar la caña:", error),
