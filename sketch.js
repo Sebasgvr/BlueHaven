@@ -35,12 +35,16 @@ function preload() {
   spritesPeces["Ballena_azul.png"] = loadImage(
     "textures/peces/Ballena_azul.png",
   );
+  spritesPeces["Pez_Globo.png"] = loadImage("textures/peces/Pez_Globo.png");
 }
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
   clear();
   pixelDensity(1);
+  document.addEventListener("wheel", manejarRuedaEnciclopedia, {
+    passive: false,
+  });
   const interfaz = document.querySelector("canvas");
   interfaz.style.position = "fixed";
   interfaz.style.inset = "0";
@@ -51,47 +55,72 @@ function setup() {
 
   sistemaCaptura = new SistemaCaptura();
   TIENDA.posicion = createVector(TAMAÑO_CELDA * 28.5, TAMAÑO_CELDA * 19);
+  if (typeof cargarProgresoLocal === "function") cargarProgresoLocal();
   inicializarEscena3D();
 }
 
 function draw() {
   clear();
 
-  if (
-    sistemaCaptura.estado === "inactivo" &&
-    menuTienda === "cerrado" &&
-    estadoLanzamiento === "reposo"
-  ) {
-    jugador.actualizar();
+  const guiaActiva =
+    typeof bienvenidaActiva === "function" && bienvenidaActiva();
+
+  // Ocultar la caña del jugador mientras esté la Guía del Pescador
+  if (cañaPesca) {
+    cañaPesca.visible = !guiaActiva;
+  }
+  if (lineaPesca && guiaActiva) lineaPesca.visible = false;
+  if (anzueloPesca && guiaActiva) anzueloPesca.visible = false;
+
+  // Bloquear toda interacción del jugador mientras la bienvenida esté activa
+  if (!guiaActiva) {
+    if (
+      sistemaCaptura.estado === "inactivo" &&
+      menuTienda === "cerrado" &&
+      estadoLanzamiento === "reposo"
+    ) {
+      jugador.actualizar();
+    }
+
+    actualizarEncuadrePesca(Math.min(deltaTime / 1000, 0.05));
+    actualizarCamara3D();
+    actualizarLanzamientoAnzuelo();
+    actualizarFlotadorPesca(Math.min(deltaTime / 1000, 0.05));
+    actualizarCañaPesca();
+    actualizarAgua();
+    actualizarAnimacionCañaTienda();
+  } else {
+    // Si la guía está activa, mantener agua y cámara vivas de fondo
+    actualizarCamara3D();
+    actualizarAgua();
+    actualizarAnimacionCañaTienda();
   }
 
-  actualizarEncuadrePesca(Math.min(deltaTime / 1000, 0.05));
-  actualizarCamara3D();
-  actualizarLanzamientoAnzuelo();
-  actualizarFlotadorPesca(Math.min(deltaTime / 1000, 0.05));
-  actualizarCañaPesca();
-  actualizarAgua();
-  actualizarAnimacionCañaTienda();
   renderizador3D.render(escena3D, camara3D);
 
-  sistemaCaptura.actualizar();
-  sistemaCaptura.dibujar();
+  if (!guiaActiva) {
+    sistemaCaptura.actualizar();
+    sistemaCaptura.dibujar();
 
-  if (menuTienda !== "cerrado") {
-    if (menuTienda === "tienda") dibujarPanelVenta();
-    else if (menuTienda === "comprar_caña") dibujarPanelComprarCaña();
-    else dibujarPanelInventario();
-  } else if (sistemaCaptura.estado === "inactivo") {
-    if (mirandoCañaTienda()) dibujarIndicadorCañaTienda();
-    else if (cercaDelAgua()) dibujarIndicadorPesca();
-    else if (cercaDeTienda()) dibujarIndicadorTienda();
+    if (menuTienda !== "cerrado") {
+      if (menuTienda === "tienda") dibujarPanelVenta();
+      else if (menuTienda === "comprar_caña") dibujarPanelComprarCaña();
+      else dibujarPanelInventario();
+    } else if (sistemaCaptura.estado === "inactivo") {
+      if (mirandoCañaTienda()) dibujarIndicadorCañaTienda();
+      else if (cercaDelAgua()) dibujarIndicadorPesca();
+      else if (cercaDeTienda()) dibujarIndicadorTienda();
+    }
+
+    dibujarHUD();
+
+    if (ratonBloqueado) dibujarPuntero();
+
+    dibujarEnciclopedia();
   }
 
-  dibujarHUD();
-
-  if (ratonBloqueado) dibujarPuntero();
-
-  dibujarEnciclopedia();
+  // La bienvenida siempre se dibuja encima de todo
+  dibujarBienvenida();
 }
 
 function mouseMoved(evento) {
@@ -99,6 +128,10 @@ function mouseMoved(evento) {
 }
 
 function moverCamaraConMouse(evento) {
+  if (ENCICLOPEDIA.abierta) {
+    actualizarHoverEnciclopedia(evento.clientX, evento.clientY);
+    return;
+  }
   if (!ratonBloqueado || sistemaCaptura.estado !== "inactivo") return;
 
   jugador.girarMouse(evento.movementX);
@@ -129,9 +162,18 @@ function cercaDelAgua() {
 
   const radioBusqueda = 2;
   const distanciaMaxima = TAMAÑO_CELDA * 1.15;
-  for (let fila = celdaZ - radioBusqueda; fila <= celdaZ + radioBusqueda; fila++) {
-    for (let columna = celdaX - radioBusqueda; columna <= celdaX + radioBusqueda; columna++) {
-      if (fila < 0 || columna < 0 || fila >= MAPA_ALTO || columna >= MAPA_ANCHO) continue;
+  for (
+    let fila = celdaZ - radioBusqueda;
+    fila <= celdaZ + radioBusqueda;
+    fila++
+  ) {
+    for (
+      let columna = celdaX - radioBusqueda;
+      columna <= celdaX + radioBusqueda;
+      columna++
+    ) {
+      if (fila < 0 || columna < 0 || fila >= MAPA_ALTO || columna >= MAPA_ANCHO)
+        continue;
       if (MAPA[fila][columna] !== 3) continue;
 
       const minX = columna * TAMAÑO_CELDA;
@@ -166,7 +208,10 @@ function dibujarIndicadorPesca() {
   let instruccion = "Mirá hacia el agua para lanzar";
   if (estadoLanzamiento === "reposo" && buscarPuntoPescaEnfrente()) {
     instruccion = "[F]  Lanzar la caña";
-  } else if (estadoLanzamiento === "en_agua" || estadoLanzamiento === "esperando") {
+  } else if (
+    estadoLanzamiento === "en_agua" ||
+    estadoLanzamiento === "esperando"
+  ) {
     instruccion = "[F]  Recoger la línea";
   } else if (estadoLanzamiento === "lanzando") {
     instruccion = "Lanzando...";
@@ -178,11 +223,38 @@ function dibujarIndicadorPesca() {
 }
 
 function keyPressed() {
+  // Cerrar la pantalla de bienvenida con cualquier tecla
+  if (bienvenidaActiva()) {
+    cerrarBienvenida();
+    return false;
+  }
+
   // Si la enciclopedia está abierta, capturar todas las teclas
   if (ENCICLOPEDIA.abierta) {
-    if (key === "w" || key === "W" || keyCode === UP_ARROW) navegarEnciclopedia(-1);
-    else if (key === "s" || key === "S" || keyCode === DOWN_ARROW) navegarEnciclopedia(1);
-    else if (key === "e" || key === "E" || keyCode === ESCAPE || key === "l" || key === "L") cerrarEnciclopedia();
+    const anterior =
+      key === "w" ||
+      key === "W" ||
+      keyCode === UP_ARROW ||
+      key === "a" ||
+      key === "A" ||
+      keyCode === LEFT_ARROW;
+    const siguiente =
+      key === "s" ||
+      key === "S" ||
+      keyCode === DOWN_ARROW ||
+      key === "d" ||
+      key === "D" ||
+      keyCode === RIGHT_ARROW;
+    if (anterior) navegarEnciclopedia(-1);
+    else if (siguiente) navegarEnciclopedia(1);
+    else if (
+      key === "e" ||
+      key === "E" ||
+      keyCode === ESCAPE ||
+      key === "l" ||
+      key === "L"
+    )
+      cerrarEnciclopedia();
     return false;
   }
 
@@ -202,17 +274,30 @@ function keyPressed() {
       return false;
     }
     if (tecla === "b" && menuTienda === "tienda") venderTodos();
-    else if (tecla === "e" || tecla === "i" || tecla === "b" || keyCode === ESCAPE) cerrarMenu();
+    else if (
+      tecla === "e" ||
+      tecla === "i" ||
+      tecla === "b" ||
+      keyCode === ESCAPE
+    )
+      cerrarMenu();
     return false;
   }
   if (key === "i" || key === "I") {
-    if (sistemaCaptura.estado === "inactivo" && estadoLanzamiento === "reposo") {
+    if (
+      sistemaCaptura.estado === "inactivo" &&
+      estadoLanzamiento === "reposo"
+    ) {
       abrirMenuInventario();
     }
     return false;
   }
   if (key === "l" || key === "L") {
-    if (sistemaCaptura.estado === "inactivo" && estadoLanzamiento === "reposo" && menuTienda === "cerrado") {
+    if (
+      sistemaCaptura.estado === "inactivo" &&
+      estadoLanzamiento === "reposo" &&
+      menuTienda === "cerrado"
+    ) {
       abrirEnciclopedia();
     }
     return false;
@@ -229,6 +314,10 @@ function keyPressed() {
     return false;
   }
   if (key === "f" || key === "F") {
+    if (sistemaCaptura.estado === "decidiendo_riesgo") {
+      sistemaCaptura.elegirRiesgo(true);
+      return false;
+    }
     if (sistemaCaptura.estado === "esperando_mordida" && anzueloLanzado) {
       sistemaCaptura.cancelar();
       iniciarRecogidaAnzuelo();
@@ -237,7 +326,10 @@ function keyPressed() {
         const destino = buscarPuntoPescaEnfrente();
         if (destino) iniciarLanzamientoAnzuelo(destino);
         else mostrarMensaje("Mirá hacia el agua para lanzar la caña.");
-      } else if (estadoLanzamiento === "en_agua" || estadoLanzamiento === "esperando") {
+      } else if (
+        estadoLanzamiento === "en_agua" ||
+        estadoLanzamiento === "esperando"
+      ) {
         iniciarRecogidaAnzuelo();
       }
     }
@@ -265,6 +357,13 @@ function keyReleased() {
     sistemaCaptura.soltarBoton();
     return false;
   }
+  if (sistemaCaptura.estado !== "inactivo") {
+    const tecla = (key || "").toLowerCase();
+    if (["a", "s", "d", "z", "x", "c"].indexOf(tecla) !== -1) {
+      sistemaCaptura.soltarTecla(key, keyCode);
+      return false;
+    }
+  }
 }
 
 function mousePressed() {
@@ -280,6 +379,16 @@ function mouseReleased() {
 }
 
 function controlarClicEscena(evento) {
+  // Cerrar la pantalla de bienvenida con clic
+  if (bienvenidaActiva()) {
+    cerrarBienvenida();
+    return;
+  }
+
+  if (ENCICLOPEDIA.abierta) {
+    manejarClicEnciclopedia(evento.clientX, evento.clientY);
+    return;
+  }
   if (menuTienda === "tienda") {
     manejarClicVenta(evento.clientX, evento.clientY);
     return;
@@ -336,7 +445,10 @@ function iniciarLanzamientoAnzuelo(destino) {
   );
   ajusteMiradaPesca = {
     origen: jugador.inclinacion,
-    destino: Math.min(jugador.inclinacion, constrain(inclinacionObjetivo, -0.74, 0.1)),
+    destino: Math.min(
+      jugador.inclinacion,
+      constrain(inclinacionObjetivo, -0.74, 0.1),
+    ),
     progreso: 0,
   };
   inicioLanzamientoMundo.copy(calcularPuntaCañaMundo());
@@ -353,7 +465,10 @@ function iniciarLanzamientoAnzuelo(destino) {
 
 function actualizarEncuadrePesca(dt) {
   if (!ajusteMiradaPesca) return;
-  ajusteMiradaPesca.progreso = Math.min(1, ajusteMiradaPesca.progreso + dt * 2.4);
+  ajusteMiradaPesca.progreso = Math.min(
+    1,
+    ajusteMiradaPesca.progreso + dt * 2.4,
+  );
   const t = ajusteMiradaPesca.progreso;
   const suave = t * t * (3 - 2 * t);
   jugador.inclinacion = lerp(
@@ -377,12 +492,17 @@ function buscarPuntoPescaEnfrente() {
   const origenZ = jugador.posicion.y;
   const paso = 8;
   const distanciaMaxima = TAMAÑO_CELDA * 9;
-  for (let distancia = TAMAÑO_CELDA * 0.35; distancia <= distanciaMaxima; distancia += paso) {
+  for (
+    let distancia = TAMAÑO_CELDA * 0.35;
+    distancia <= distanciaMaxima;
+    distancia += paso
+  ) {
     const x = origenX + direccion.x * distancia;
     const z = origenZ + direccion.z * distancia;
     const columna = Math.floor(x / TAMAÑO_CELDA);
     const fila = Math.floor(z / TAMAÑO_CELDA);
-    if (fila < 0 || columna < 0 || fila >= MAPA_ALTO || columna >= MAPA_ANCHO) break;
+    if (fila < 0 || columna < 0 || fila >= MAPA_ALTO || columna >= MAPA_ANCHO)
+      break;
     if (MAPA[fila][columna] === 3) {
       return new THREE.Vector3(
         (columna + 0.5) * TAMAÑO_CELDA,
@@ -400,7 +520,9 @@ function calcularPuntaCañaMundo() {
 }
 
 function actualizarPosicionAnzueloEnArco(progreso) {
-  posicionAnzueloMundo.copy(inicioLanzamientoMundo).lerp(destinoPescaMundo, progreso);
+  posicionAnzueloMundo
+    .copy(inicioLanzamientoMundo)
+    .lerp(destinoPescaMundo, progreso);
   const distancia = inicioLanzamientoMundo.distanceTo(destinoPescaMundo);
   const alturaArco = Math.min(18, Math.max(7, distancia * 0.08));
   posicionAnzueloMundo.y += Math.sin(progreso * Math.PI) * alturaArco;
@@ -449,7 +571,7 @@ function actualizarLanzamientoAnzuelo() {
     tiempoEnAgua += dt;
     if (tiempoEnAgua >= esperaMordida) {
       estadoLanzamiento = "esperando";
-      sistemaCaptura.iniciar(random(PECES_CAPTURA));
+      sistemaCaptura.iniciar(elegirPezAleatorio());
     }
   }
 }
@@ -575,15 +697,20 @@ function cargarCañaTiendaEnEscena() {
       const caja = new THREE.Box3().setFromObject(modeloCañaTienda);
       const centro = caja.getCenter(new THREE.Vector3());
       const tamaño = caja.getSize(new THREE.Vector3());
-      const escala = (TAMAÑO_CELDA * 0.82) / Math.max(tamaño.x, tamaño.y, tamaño.z);
+      const escala =
+        (TAMAÑO_CELDA * 0.82) / Math.max(tamaño.x, tamaño.y, tamaño.z);
 
       modeloCañaTienda.position.sub(centro);
       modeloCañaTienda.scale.setScalar(escala);
 
       // Hitbox cilíndrica invisible adherida al nodo de la caña ('Rod') para seguir su rotación y forma real
-      const nodoRod = modeloCañaTienda.getObjectByName("Rod") || modeloCañaTienda;
+      const nodoRod =
+        modeloCañaTienda.getObjectByName("Rod") || modeloCañaTienda;
       const geoHitbox = new THREE.CylinderGeometry(0.1, 0.1, 4.8, 8);
-      const matHitbox = new THREE.MeshBasicMaterial({ visible: false, wireframe: false });
+      const matHitbox = new THREE.MeshBasicMaterial({
+        visible: false,
+        wireframe: false,
+      });
       mallaHitboxCaña = new THREE.Mesh(geoHitbox, matHitbox);
       mallaHitboxCaña.position.set(0, 0.1, 0);
       mallaHitboxCaña.name = "HitboxCañaTienda";
@@ -597,17 +724,14 @@ function cargarCañaTiendaEnEscena() {
       modeloCañaTienda.rotation.set(1.5, -0.25, 0.2);
 
       // Posición dentro de la casa de pesca
-      posicionBaseCaña.set(
-        TIENDA.posicion.x - 10,
-        38,
-        TIENDA.posicion.y - 44,
-      );
+      posicionBaseCaña.set(TIENDA.posicion.x - 10, 38, TIENDA.posicion.y - 44);
 
       grupoCañaTienda.position.copy(posicionBaseCaña);
       escena3D.add(grupoCañaTienda);
     },
     undefined,
-    (error) => console.error("No se pudo cargar la caña de bambú en la tienda:", error),
+    (error) =>
+      console.error("No se pudo cargar la caña de bambú en la tienda:", error),
   );
 }
 
@@ -616,10 +740,16 @@ function actualizarAnimacionCañaTienda() {
 
   const estaMirando = mirandoCañaTienda();
   const objetivoHover = estaMirando ? 1 : 0;
-  elevacionHoverCaña = THREE.MathUtils.lerp(elevacionHoverCaña, objetivoHover, 0.16);
+  elevacionHoverCaña = THREE.MathUtils.lerp(
+    elevacionHoverCaña,
+    objetivoHover,
+    0.16,
+  );
 
   // Se levanta suavemente cuando el cursor está encima y flota ligeramente
-  const offsetLevantamiento = elevacionHoverCaña * 7.5 + (estaMirando ? Math.sin(frameCount * 0.12) * 1.5 : 0);
+  const offsetLevantamiento =
+    elevacionHoverCaña * 7.5 +
+    (estaMirando ? Math.sin(frameCount * 0.12) * 1.5 : 0);
   grupoCañaTienda.position.y = posicionBaseCaña.y + offsetLevantamiento;
 
   // Ilumina los bordes / materiales con un resplandor verde brillante
@@ -630,7 +760,7 @@ function actualizarAnimacionCañaTienda() {
     }
     if (objeto.isMesh && objeto.material && objeto !== mallaHitboxCaña) {
       if (objeto.material.emissive) {
-        objeto.material.emissive.setHex(0x768F49); // Verde luminoso
+        objeto.material.emissive.setHex(0x768f49); // Verde luminoso
         objeto.material.emissiveIntensity = elevacionHoverCaña * 0.45;
       }
     }
@@ -652,7 +782,11 @@ function mirandoCañaTienda() {
 
   for (let i = 0; i < intersecciones.length; i++) {
     const hit = intersecciones[i];
-    if (hit.object && hit.object.name && hit.object.name.toLowerCase().includes("robe")) {
+    if (
+      hit.object &&
+      hit.object.name &&
+      hit.object.name.toLowerCase().includes("robe")
+    ) {
       continue;
     }
     if (hit.distance <= TAMAÑO_CELDA * 3.5) {
@@ -708,17 +842,19 @@ function equiparCañaBambu() {
       });
       modelo.renderOrder = 20;
       cañaPesca.add(modelo);
+      if (typeof tieneCañaBambu !== "undefined" && tieneCañaBambu) {
+        equiparCañaBambu();
+      }
     },
     undefined,
     (error) => console.error("No se pudo equipar la caña de bambú:", error),
   );
 }
 
-
 function cargarKiwifinaEnEscena() {
   if (!TIENDA.posicion) return;
 
-  const escalaRelativa = 0.70; // Mismo tamaño que el jugador (altura ~45 unidades)
+  const escalaRelativa = 0.7; // Mismo tamaño que el jugador (altura ~45 unidades)
   const offsetX = 28;
   const offsetZ = -28;
   const rotacionY = -Math.PI / 2;
@@ -775,7 +911,8 @@ function cargarKiwifinaEnEscena() {
 
 function cargarCañaPesca() {
   cañaPesca = new THREE.Group();
-  cañaPesca.visible = true;
+  cañaPesca.visible =
+    typeof bienvenidaActiva === "function" ? !bienvenidaActiva() : true;
   escena3D.add(cañaPesca);
 
   // Este grupo vive en el mundo, no en la cámara: así el flotador no gira con la mirada.
@@ -804,6 +941,9 @@ function cargarCañaPesca() {
       });
       modelo.renderOrder = 20;
       cañaPesca.add(modelo);
+      if (typeof tieneCañaBambu !== "undefined" && tieneCañaBambu) {
+        equiparCañaBambu();
+      }
     },
     undefined,
     (error) => console.error("No se pudo cargar la caña:", error),
@@ -870,7 +1010,15 @@ function crearFlotadorPesca() {
   flotadorPesca.add(arriba);
 
   const abajo = new THREE.Mesh(
-    new THREE.SphereGeometry(radioCuerpo, 8, 5, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+    new THREE.SphereGeometry(
+      radioCuerpo,
+      8,
+      5,
+      0,
+      Math.PI * 2,
+      Math.PI / 2,
+      Math.PI / 2,
+    ),
     marfil,
   );
   abajo.scale.set(1, 0.76, 1);
@@ -953,7 +1101,10 @@ function actualizarFlotadorPesca(dt) {
     const ciclo = (frameCount * 0.018 + indice * 0.48) % 1;
     const escala = 0.55 + ciclo * 1.15 + faseSalpicadura * 0.9;
     onda.scale.setScalar(escala);
-    onda.material.opacity = Math.min(0.34, (1 - ciclo) * 0.15 + faseSalpicadura * 0.32);
+    onda.material.opacity = Math.min(
+      0.34,
+      (1 - ciclo) * 0.15 + faseSalpicadura * 0.32,
+    );
   });
 }
 
@@ -972,9 +1123,10 @@ function actualizarCañaPesca() {
       : estadoLanzamiento === "retrayendo"
         ? Math.sin(progresoLanzamiento * Math.PI) * 0.45
         : 0;
-  const animacionTiron = sistemaCaptura.estado === "tiron_fuerte"
-    ? Math.sin(frameCount * 0.65) * 0.12
-    : 0;
+  const animacionTiron =
+    sistemaCaptura.estado === "tiron_fuerte"
+      ? Math.sin(frameCount * 0.65) * 0.12
+      : 0;
   cañaPesca.rotateX(0.12 + animacionLanzamiento * 0.42 + animacionTiron);
   cañaPesca.rotateZ(-0.18 - animacionLanzamiento * 0.12);
 
@@ -988,7 +1140,11 @@ function actualizarCañaPesca() {
   if (estadoLanzamiento === "lanzando" || estadoLanzamiento === "retrayendo") {
     final.copy(posicionAnzueloMundo);
   } else {
-    final.set(destinoPescaMundo.x, flotadorPesca.position.y + 0.12, destinoPescaMundo.z);
+    final.set(
+      destinoPescaMundo.x,
+      flotadorPesca.position.y + 0.12,
+      destinoPescaMundo.z,
+    );
   }
 
   const posiciones = lineaPesca.geometry.attributes.position.array;
@@ -1101,7 +1257,13 @@ function crearSuperficieLago() {
 }
 
 // Compone el mapa completo del lago (esquinas, bordes y centro de agua) para un frame del GIF
-function componerLienzoLagoParaFrame(frame64Canvas, minCol, maxCol, minF, maxF) {
+function componerLienzoLagoParaFrame(
+  frame64Canvas,
+  minCol,
+  maxCol,
+  minF,
+  maxF,
+) {
   const cols = maxCol - minCol + 1;
   const filas = maxF - minF + 1;
   const canvas = document.createElement("canvas");
@@ -1115,10 +1277,10 @@ function componerLienzoLagoParaFrame(frame64Canvas, minCol, maxCol, minF, maxF) 
       const c = minCol + cIdx;
       if (MAPA[f] && MAPA[f][c] !== 3) continue;
 
-      const n = (f === minF || (MAPA[f - 1] && MAPA[f - 1][c] !== 3));
-      const s = (f === maxF || (MAPA[f + 1] && MAPA[f + 1][c] !== 3));
-      const o = (c === minCol || (MAPA[f] && MAPA[f][c - 1] !== 3));
-      const e = (c === maxCol || (MAPA[f] && MAPA[f][c + 1] !== 3));
+      const n = f === minF || (MAPA[f - 1] && MAPA[f - 1][c] !== 3);
+      const s = f === maxF || (MAPA[f + 1] && MAPA[f + 1][c] !== 3);
+      const o = c === minCol || (MAPA[f] && MAPA[f][c - 1] !== 3);
+      const e = c === maxCol || (MAPA[f] && MAPA[f][c + 1] !== 3);
 
       const destX = cIdx * 16;
       const destY = fIdx * 16;
@@ -1188,20 +1350,30 @@ function decodificarFramesAgua(buffer) {
     }
     resetDict();
     let out = [];
-    let bitBuf = 0, bitCount = 0;
+    let bitBuf = 0,
+      bitCount = 0;
     let dataPos = 0;
     let prev = null;
     while (out.length < numPixels && dataPos < data.length) {
       while (bitCount < codeSize && dataPos < data.length) {
-        bitBuf |= (data[dataPos++] << bitCount);
+        bitBuf |= data[dataPos++] << bitCount;
         bitCount += 8;
       }
       let code = bitBuf & codeMask;
       bitBuf >>= codeSize;
       bitCount -= codeSize;
-      if (code === clearCode) { resetDict(); prev = null; continue; }
+      if (code === clearCode) {
+        resetDict();
+        prev = null;
+        continue;
+      }
       if (code === eoiCode) break;
-      let entry = (code < dict.length) ? dict[code] : (code === dict.length && prev ? prev.concat(prev[0]) : null);
+      let entry =
+        code < dict.length
+          ? dict[code]
+          : code === dict.length && prev
+            ? prev.concat(prev[0])
+            : null;
       if (!entry) break;
       for (let i = 0; i < entry.length; i++) out.push(entry[i]);
       if (prev && dict.length < 4096) {
@@ -1219,12 +1391,12 @@ function decodificarFramesAgua(buffer) {
   let pos = 13 + gctSize;
   const canvases = [];
   while (pos < bytes.length) {
-    if (bytes[pos] === 0x3B) break;
+    if (bytes[pos] === 0x3b) break;
     if (bytes[pos] === 0x21) {
       pos += 2;
       while (pos < bytes.length && bytes[pos] !== 0) pos += 1 + bytes[pos];
       pos++;
-    } else if (bytes[pos] === 0x2C) {
+    } else if (bytes[pos] === 0x2c) {
       const w = bytes[pos + 5] | (bytes[pos + 6] << 8);
       const h = bytes[pos + 7] | (bytes[pos + 8] << 8);
       const packed = bytes[pos + 9];
@@ -1249,7 +1421,10 @@ function decodificarFramesAgua(buffer) {
       let totalLen = blocks.reduce((acc, b) => acc + b.length, 0);
       let comp = new Uint8Array(totalLen);
       let offset = 0;
-      for (let b of blocks) { comp.set(b, offset); offset += b.length; }
+      for (let b of blocks) {
+        comp.set(b, offset);
+        offset += b.length;
+      }
       const indices = decodeLZW(minCodeSize, comp, w * h);
 
       // Decodificar el frame completo de 64x16 con sus 4 tiles
@@ -1317,7 +1492,11 @@ function cargarTiendaEnEscena() {
 
       const caja = new THREE.Box3();
       modelo.traverse((objeto) => {
-        if (objeto.isMesh && objeto.visible && !(objeto.name && objeto.name.toLowerCase().includes("water"))) {
+        if (
+          objeto.isMesh &&
+          objeto.visible &&
+          !(objeto.name && objeto.name.toLowerCase().includes("water"))
+        ) {
           caja.expandByObject(objeto);
         }
       });
@@ -1362,10 +1541,18 @@ function obtenerClaveBaldosa(f, c) {
   const tipo = clasificarTerreno(f, c);
 
   if (tipo === "pasto") {
-    const N = (clasificarTerreno(f - 1, c) === "tierra" || clasificarTerreno(f - 1, c) === "arena");
-    const S = (clasificarTerreno(f + 1, c) === "tierra" || clasificarTerreno(f + 1, c) === "arena");
-    const O = (clasificarTerreno(f, c - 1) === "tierra" || clasificarTerreno(f, c - 1) === "arena");
-    const E = (clasificarTerreno(f, c + 1) === "tierra" || clasificarTerreno(f, c + 1) === "arena");
+    const N =
+      clasificarTerreno(f - 1, c) === "tierra" ||
+      clasificarTerreno(f - 1, c) === "arena";
+    const S =
+      clasificarTerreno(f + 1, c) === "tierra" ||
+      clasificarTerreno(f + 1, c) === "arena";
+    const O =
+      clasificarTerreno(f, c - 1) === "tierra" ||
+      clasificarTerreno(f, c - 1) === "arena";
+    const E =
+      clasificarTerreno(f, c + 1) === "tierra" ||
+      clasificarTerreno(f, c + 1) === "arena";
 
     // Esquinas interiores (cóncavas): dos bordes cardinales tocan tierra -> casi toda la celda es tierra y solo una punta es pasto
     if (S && E) return "pasto_esq_int_NO"; // Punta de pasto en Noroeste
@@ -1380,10 +1567,18 @@ function obtenerClaveBaldosa(f, c) {
     if (O) return "pasto_borde_O";
 
     // Esquinas exteriores (convexas): lados cardinales son pasto, pero una diagonal toca tierra
-    const NE = (clasificarTerreno(f - 1, c + 1) === "tierra" || clasificarTerreno(f - 1, c + 1) === "arena");
-    const NO = (clasificarTerreno(f - 1, c - 1) === "tierra" || clasificarTerreno(f - 1, c - 1) === "arena");
-    const SE = (clasificarTerreno(f + 1, c + 1) === "tierra" || clasificarTerreno(f + 1, c + 1) === "arena");
-    const SO = (clasificarTerreno(f + 1, c - 1) === "tierra" || clasificarTerreno(f + 1, c - 1) === "arena");
+    const NE =
+      clasificarTerreno(f - 1, c + 1) === "tierra" ||
+      clasificarTerreno(f - 1, c + 1) === "arena";
+    const NO =
+      clasificarTerreno(f - 1, c - 1) === "tierra" ||
+      clasificarTerreno(f - 1, c - 1) === "arena";
+    const SE =
+      clasificarTerreno(f + 1, c + 1) === "tierra" ||
+      clasificarTerreno(f + 1, c + 1) === "arena";
+    const SO =
+      clasificarTerreno(f + 1, c - 1) === "tierra" ||
+      clasificarTerreno(f + 1, c - 1) === "arena";
 
     if (SE) return "pasto_esq_ext_SE"; // Tierra en la esquina Sureste
     if (SO) return "pasto_esq_ext_SO"; // Tierra en la esquina Suroeste
@@ -1394,10 +1589,18 @@ function obtenerClaveBaldosa(f, c) {
   }
 
   if (tipo === "arena") {
-    const N = (clasificarTerreno(f - 1, c) === "tierra" || clasificarTerreno(f - 1, c) === "pasto");
-    const S = (clasificarTerreno(f + 1, c) === "tierra" || clasificarTerreno(f + 1, c) === "pasto");
-    const O = (clasificarTerreno(f, c - 1) === "tierra" || clasificarTerreno(f, c - 1) === "pasto");
-    const E = (clasificarTerreno(f, c + 1) === "tierra" || clasificarTerreno(f, c + 1) === "pasto");
+    const N =
+      clasificarTerreno(f - 1, c) === "tierra" ||
+      clasificarTerreno(f - 1, c) === "pasto";
+    const S =
+      clasificarTerreno(f + 1, c) === "tierra" ||
+      clasificarTerreno(f + 1, c) === "pasto";
+    const O =
+      clasificarTerreno(f, c - 1) === "tierra" ||
+      clasificarTerreno(f, c - 1) === "pasto";
+    const E =
+      clasificarTerreno(f, c + 1) === "tierra" ||
+      clasificarTerreno(f, c + 1) === "pasto";
 
     if (S && E) return "arena_esq_int_NO";
     if (S && O) return "arena_esq_int_NE";
@@ -1409,10 +1612,18 @@ function obtenerClaveBaldosa(f, c) {
     if (E) return "arena_borde_E";
     if (O) return "arena_borde_O";
 
-    const NE = (clasificarTerreno(f - 1, c + 1) === "tierra" || clasificarTerreno(f - 1, c + 1) === "pasto");
-    const NO = (clasificarTerreno(f - 1, c - 1) === "tierra" || clasificarTerreno(f - 1, c - 1) === "pasto");
-    const SE = (clasificarTerreno(f + 1, c + 1) === "tierra" || clasificarTerreno(f + 1, c + 1) === "pasto");
-    const SO = (clasificarTerreno(f + 1, c - 1) === "tierra" || clasificarTerreno(f + 1, c - 1) === "pasto");
+    const NE =
+      clasificarTerreno(f - 1, c + 1) === "tierra" ||
+      clasificarTerreno(f - 1, c + 1) === "pasto";
+    const NO =
+      clasificarTerreno(f - 1, c - 1) === "tierra" ||
+      clasificarTerreno(f - 1, c - 1) === "pasto";
+    const SE =
+      clasificarTerreno(f + 1, c + 1) === "tierra" ||
+      clasificarTerreno(f + 1, c + 1) === "pasto";
+    const SO =
+      clasificarTerreno(f + 1, c - 1) === "tierra" ||
+      clasificarTerreno(f + 1, c - 1) === "pasto";
 
     if (SE) return "arena_esq_ext_SE";
     if (SO) return "arena_esq_ext_SO";
@@ -1452,19 +1663,16 @@ function renderizarTileEnCanvas(ctx, img, clave) {
     else if (clave === "pasto_borde_N") draw(32, 0, Math.PI);
     else if (clave === "pasto_borde_E") draw(32, 0, -Math.PI / 2);
     else if (clave === "pasto_borde_O") draw(32, 0, Math.PI / 2);
-
     // Esquinas exteriores (convexas) (Tile 1, x: 16, y: 0): mayormente pasto con esquina de tierra
     else if (clave === "pasto_esq_ext_SE") draw(16, 0, 0);
     else if (clave === "pasto_esq_ext_SO") draw(16, 0, 0, true, false);
     else if (clave === "pasto_esq_ext_NE") draw(16, 0, 0, false, true);
     else if (clave === "pasto_esq_ext_NO") draw(16, 0, Math.PI);
-
     // Esquinas interiores (cóncavas) (Tile 3, x: 48, y: 0): mayormente tierra con esquina de pasto
     else if (clave === "pasto_esq_int_NO") draw(48, 0, 0);
     else if (clave === "pasto_esq_int_NE") draw(48, 0, 0, true, false);
     else if (clave === "pasto_esq_int_SO") draw(48, 0, 0, false, true);
     else if (clave === "pasto_esq_int_SE") draw(48, 0, Math.PI);
-
     else draw(0, 0);
   } else if (clave.startsWith("arena_")) {
     draw(64, 0); // Fondo de tierra
@@ -1473,17 +1681,14 @@ function renderizarTileEnCanvas(ctx, img, clave) {
     else if (clave === "arena_borde_N") draw(32, 16, Math.PI);
     else if (clave === "arena_borde_E") draw(32, 16, -Math.PI / 2);
     else if (clave === "arena_borde_O") draw(32, 16, Math.PI / 2);
-
     else if (clave === "arena_esq_ext_SE") draw(16, 16, 0);
     else if (clave === "arena_esq_ext_SO") draw(16, 16, 0, true, false);
     else if (clave === "arena_esq_ext_NE") draw(16, 16, 0, false, true);
     else if (clave === "arena_esq_ext_NO") draw(16, 16, Math.PI);
-
     else if (clave === "arena_esq_int_NO") draw(48, 16, 0);
     else if (clave === "arena_esq_int_NE") draw(48, 16, 0, true, false);
     else if (clave === "arena_esq_int_SO") draw(48, 16, 0, false, true);
     else if (clave === "arena_esq_int_SE") draw(48, 16, Math.PI);
-
     else draw(0, 16);
   }
 }
@@ -1495,7 +1700,11 @@ function inicializarTexturasSuelo() {
   imagenSueloOriginal.onload = () => {
     texturaSueloCargada = true;
     for (const [clave, item] of materialesSueloCache.entries()) {
-      renderizarTileEnCanvas(item.canvas.getContext("2d"), imagenSueloOriginal, clave);
+      renderizarTileEnCanvas(
+        item.canvas.getContext("2d"),
+        imagenSueloOriginal,
+        clave,
+      );
       item.texture.needsUpdate = true;
     }
   };
@@ -1516,7 +1725,11 @@ function obtenerMaterialBaldosa(clave) {
   tex.minFilter = THREE.NearestFilter;
 
   const mat = new THREE.MeshLambertMaterial({ map: tex });
-  materialesSueloCache.set(clave, { material: mat, texture: tex, canvas: canvas });
+  materialesSueloCache.set(clave, {
+    material: mat,
+    texture: tex,
+    canvas: canvas,
+  });
 
   if (imagenSueloOriginal && texturaSueloCargada) {
     renderizarTileEnCanvas(canvas.getContext("2d"), imagenSueloOriginal, clave);
@@ -1564,15 +1777,14 @@ function esArenaEnCosta(fila, columna) {
 }
 
 function actualizarCamara3D() {
-  const descensoAgachado = (jugador.factorAgachado || 0) * (TAMAÑO_CELDA * 0.35);
+  const descensoAgachado =
+    (jugador.factorAgachado || 0) * (TAMAÑO_CELDA * 0.35);
   camara3D.position.set(
     jugador.posicion.x,
     TAMAÑO_CELDA * 0.7 + jugador.alturaSalto - descensoAgachado,
     jugador.posicion.y,
   );
   camara3D.rotation.set(jugador.inclinacion, -jugador.angulo - Math.PI / 2, 0);
-
-
 }
 
 function windowResized() {
