@@ -5,6 +5,7 @@ let jugador;
 let sistemaCaptura;
 let spritesPeces = {};
 let texturaAgua = null;
+let catalogoEspecies = [];
 
 let escena3D;
 let camara3D;
@@ -60,6 +61,31 @@ function setup() {
   );
   if (typeof cargarProgresoLocal === "function") cargarProgresoLocal();
   inicializarEscena3D();
+}
+
+// auth.js llama a esta función cuando el login/registro en el backend sale bien
+async function iniciarJuego() {
+  try {
+    await cargarDatosUsuario();
+  } catch (err) {
+    console.warn("Modo local sin sincronización de catálogo/mochila:", err);
+  }
+  loop();
+}
+
+async function cargarDatosUsuario() {
+  const res = await fetch("api/catalogo.php");
+  if (res.ok) {
+    catalogoEspecies = await res.json();
+  }
+
+  const resInv = await fetch("api/mi_inventario.php");
+  if (resInv.ok) {
+    const invRemoto = await resInv.json();
+    if (Array.isArray(invRemoto) && invRemoto.length > 0) {
+      inventario = invRemoto;
+    }
+  }
 }
 
 function draw() {
@@ -230,6 +256,8 @@ function dibujarIndicadorPesca() {
 }
 
 function keyPressed() {
+  // Con el chat abierto ignoramos las teclas del juego para poder escribir en el input
+  if (window.chatAbierto) return;
   // Cerrar la pantalla de bienvenida con cualquier tecla
   if (bienvenidaActiva()) {
     cerrarBienvenida();
@@ -353,6 +381,7 @@ function keyPressed() {
 }
 
 function keyReleased() {
+  if (window.chatAbierto) return;
   if (keyCode === 32) {
     sistemaCaptura.soltarBoton();
     return false;
@@ -367,18 +396,21 @@ function keyReleased() {
 }
 
 function mousePressed() {
+  if (window.chatAbierto) return;
   if (sistemaCaptura.estado !== "inactivo") {
     sistemaCaptura.presionarBoton({ x: mouseX, y: mouseY });
   }
 }
 
 function mouseReleased() {
+  if (window.chatAbierto) return;
   if (sistemaCaptura.estado !== "inactivo") {
     sistemaCaptura.soltarBoton();
   }
 }
 
 function controlarClicEscena(evento) {
+  if (window.chatAbierto) return;
   // Cerrar la pantalla de bienvenida con clic
   if (bienvenidaActiva()) {
     cerrarBienvenida();

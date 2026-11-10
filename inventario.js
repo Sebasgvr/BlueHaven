@@ -37,8 +37,18 @@ function mostrarMensaje(texto) {
   timerMensaje = 3000;
 }
 
-function agregarPez(pez) {
+// Busca el id real (de la base) de un pez por nombre, usando el catálogo
+// cargado al iniciar sesión (si está disponible).
+function obtenerIdPez(nombre) {
+  if (typeof catalogoEspecies === "undefined" || !catalogoEspecies) return null;
+  const encontrado = catalogoEspecies.find((p) => p.nombre === nombre);
+  return encontrado ? encontrado.id : null;
+}
+
+async function agregarPez(pez) {
+  const pezId = obtenerIdPez(pez.nombre);
   const ejemplar = {
+    pez_id: pezId,
     nombre: pez.nombre,
     rareza: pez.rareza,
     sprite: pez.sprite || null,
@@ -55,6 +65,21 @@ function agregarPez(pez) {
 
   inventario.push(ejemplar);
   if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
+
+  if (pezId) {
+    try {
+      const res = await fetch("api/guardar_captura.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pez_id: pezId }),
+      });
+      const data = await res.json();
+      if (data && data.ok) ejemplar.id = data.inventario_id;
+    } catch (err) {
+      // Sin servidor PHP disponible: se mantiene en inventario local
+    }
+  }
+
   return true;
 }
 
@@ -64,9 +89,31 @@ function valorTotalInventario() {
   return total;
 }
 
-function venderPez(indice) {
+async function venderPez(indice) {
   if (indice < 0 || indice >= inventario.length) return;
   const pez = inventario[indice];
+
+  if (pez.id) {
+    try {
+      const res = await fetch("api/vender.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inventario_id: pez.id }),
+      });
+      const data = await res.json();
+      if (data && data.ok) {
+        const ganancia = typeof data.precio === "number" ? data.precio : precioDe(pez);
+        dinero += ganancia;
+        inventario.splice(indice, 1);
+        mostrarMensaje("Vendiste " + pez.nombre + " por $" + ganancia);
+        if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
+        return;
+      }
+    } catch (err) {
+      // Fallback a venta local si no responde el servidor
+    }
+  }
+
   const precio = precioDe(pez);
   dinero += precio;
   inventario.splice(indice, 1);
@@ -74,9 +121,25 @@ function venderPez(indice) {
   if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
 }
 
-function venderTodos() {
+async function venderTodos() {
   const total = valorTotalInventario();
   if (total <= 0) return;
+
+  try {
+    const res = await fetch("api/vender_todos.php", { method: "POST" });
+    const data = await res.json();
+    if (data && data.ok) {
+      const ganancia = typeof data.total === "number" ? data.total : total;
+      dinero += ganancia;
+      inventario.length = 0;
+      mostrarMensaje("Vendiste todo por $" + ganancia);
+      if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
+      return;
+    }
+  } catch (err) {
+    // Fallback a venta local si no responde el servidor
+  }
+
   dinero += total;
   inventario.length = 0;
   mostrarMensaje("Vendiste todo por $" + total);
