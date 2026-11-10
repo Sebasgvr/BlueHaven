@@ -121,6 +121,8 @@ function guardarProgresoLocal() {
       inventario: typeof inventario !== "undefined" ? inventario : [],
       tieneCañaBambu:
         typeof tieneCañaBambu !== "undefined" ? tieneCañaBambu : false,
+      cañaEquipada:
+        typeof cañaEquipada !== "undefined" ? cañaEquipada : "basica",
     };
     localStorage.setItem(CLAVE_STORAGE, JSON.stringify(datos));
   } catch (e) {
@@ -153,6 +155,11 @@ function cargarProgresoLocal() {
       ) {
         tieneCañaBambu = datos.tieneCañaBambu;
       }
+      if (typeof cañaEquipada !== "undefined") {
+        // Solo se puede equipar la de bambú si se tiene
+        cañaEquipada =
+          datos.cañaEquipada === "bambu" && tieneCañaBambu ? "bambu" : "basica";
+      }
     }
   } catch (e) {
     console.warn("No se pudo cargar progreso de localStorage:", e);
@@ -167,6 +174,7 @@ function reiniciarProgresoLocal() {
   if (typeof dinero !== "undefined") dinero = 0;
   if (typeof inventario !== "undefined") inventario.length = 0;
   if (typeof tieneCañaBambu !== "undefined") tieneCañaBambu = false;
+  if (typeof cañaEquipada !== "undefined") cañaEquipada = "basica";
   if (typeof mostrarMensaje === "function")
     mostrarMensaje("Progreso reiniciado.");
 }

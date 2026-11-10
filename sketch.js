@@ -54,7 +54,10 @@ function setup() {
   jugador = new Jugador(TAMAÑO_CELDA * 32, TAMAÑO_CELDA * 19);
 
   sistemaCaptura = new SistemaCaptura();
-  TIENDA.posicion = createVector(TAMAÑO_CELDA * 28.5, TAMAÑO_CELDA * 19);
+  TIENDA.posicion = createVector(
+    TAMAÑO_CELDA * TIENDA_COLUMNA,
+    TAMAÑO_CELDA * TIENDA_FILA,
+  );
   if (typeof cargarProgresoLocal === "function") cargarProgresoLocal();
   inicializarEscena3D();
 }
@@ -108,7 +111,8 @@ function draw() {
       else dibujarPanelInventario();
     } else if (sistemaCaptura.estado === "inactivo") {
       if (mirandoCañaTienda()) dibujarIndicadorCañaTienda();
-      else if (cercaDelAgua()) dibujarIndicadorPesca();
+      else if (cercaDelAgua() || estadoLanzamiento !== "reposo")
+        dibujarIndicadorPesca();
       else if (cercaDeTienda()) dibujarIndicadorTienda();
     }
 
@@ -191,7 +195,8 @@ function cercaDelAgua() {
 function cercaDeTienda() {
   if (!TIENDA.posicion) return false;
   return (
-    p5.Vector.dist(jugador.posicion, TIENDA.posicion) <= TAMAÑO_CELDA * 3.2
+    p5.Vector.dist(jugador.posicion, TIENDA.posicion) <=
+    TAMAÑO_CELDA * 3.2 * TIENDA_FACTOR
   );
 }
 
@@ -205,17 +210,19 @@ function dibujarIndicadorPesca() {
   fill(255, 240, 100, 185 + pulso * 70);
   textAlign(CENTER, CENTER);
   textSize(14);
-  let instruccion = "Mirá hacia el agua para lanzar";
+  let instruccion = "[F] / Clic  Lanzar la caña";
   if (estadoLanzamiento === "reposo" && buscarPuntoPescaEnfrente()) {
-    instruccion = "[F]  Lanzar la caña";
+    instruccion = "[F] / Clic  Lanzar al agua";
   } else if (
     estadoLanzamiento === "en_agua" ||
     estadoLanzamiento === "esperando"
   ) {
-    instruccion = "[F]  Recoger la línea";
+    instruccion = "[F] / Clic  Recoger la línea";
   } else if (estadoLanzamiento === "lanzando") {
     instruccion = "Lanzando...";
   } else if (estadoLanzamiento === "retrayendo") {
+    // El anzuelo vuelve a la punta de la caña (que se mueve), no a donde estaba al lanzar
+    inicioLanzamientoMundo.copy(calcularPuntaCañaMundo());
     instruccion = "Recogiendo...";
   }
   text(instruccion, width / 2, height * 0.85 - 2);
@@ -322,15 +329,8 @@ function keyPressed() {
       sistemaCaptura.cancelar();
       iniciarRecogidaAnzuelo();
     } else if (sistemaCaptura.estado === "inactivo") {
-      if (estadoLanzamiento === "reposo" && cercaDelAgua()) {
-        const destino = buscarPuntoPescaEnfrente();
-        if (destino) iniciarLanzamientoAnzuelo(destino);
-        else mostrarMensaje("Mirá hacia el agua para lanzar la caña.");
-      } else if (
-        estadoLanzamiento === "en_agua" ||
-        estadoLanzamiento === "esperando"
-      ) {
-        iniciarRecogidaAnzuelo();
+      if (estadoLanzamiento === "reposo" || estadoLanzamiento === "en_agua" || estadoLanzamiento === "esperando") {
+        lanzarORecogerCaña();
       }
     }
     return false;
@@ -398,7 +398,7 @@ function controlarClicEscena(evento) {
     return;
   }
   if (menuTienda === "inventario") {
-    cerrarMenu();
+    manejarClicInventario(evento.clientX, evento.clientY);
     return;
   }
 
@@ -412,7 +412,13 @@ function controlarClicEscena(evento) {
     return;
   }
 
-  if (!ratonBloqueado) renderizador3D.domElement.requestPointerLock();
+  if (!ratonBloqueado) {
+    renderizador3D.domElement.requestPointerLock();
+    return;
+  }
+
+  // Con el ratón capturado, el clic lanza la caña (o recoge la línea) desde cualquier lugar
+  lanzarORecogerCaña();
 }
 
 function cancelarPesca() {
@@ -432,28 +438,50 @@ function cancelarPesca() {
   actualizarCañaPesca();
 }
 
-function iniciarLanzamientoAnzuelo(destino) {
+// Duración (seg) de la preparación del lanzamiento: la caña se echa hacia atrás con el anzuelo colgando
+const TIEMPO_PREPARACION_LANZAMIENTO = 0.28;
+let preparacionLanzamiento = 0;
+
+// Lanza el anzuelo desde la punta de la caña. Se puede usar desde cualquier lugar:
+// si hay agua enfrente cae ahí; si no, cae en el suelo y la línea se recoge sola.
+function lanzarORecogerCaña() {
+  if (estadoLanzamiento === "reposo") {
+    const agua = buscarPuntoPescaEnfrente();
+    if (agua) {
+      iniciarLanzamientoAnzuelo(agua, true);
+    } else {
+      const direccion = new THREE.Vector3();
+      camara3D.getWorldDirection(direccion);
+      direccion.y = 0;
+      if (direccion.lengthSq() < 0.0001) direccion.set(0, 0, -1);
+      direccion.normalize();
+      const alcance = TAMAÑO_CELDA * 5;
+      iniciarLanzamientoAnzuelo(
+        new THREE.Vector3(
+          jugador.posicion.x + direccion.x * alcance,
+          0.08,
+          jugador.posicion.y + direccion.z * alcance,
+        ),
+        false,
+      );
+    }
+  } else if (
+    estadoLanzamiento === "en_agua" ||
+    estadoLanzamiento === "esperando"
+  ) {
+    iniciarRecogidaAnzuelo();
+  }
+}
+
+function iniciarLanzamientoAnzuelo(destino, enAgua = true) {
   if (!destino) return;
   destinoPescaMundo.copy(destino);
-  const distanciaHorizontal = Math.hypot(
-    destino.x - jugador.posicion.x,
-    destino.z - jugador.posicion.y,
-  );
-  const inclinacionObjetivo = -Math.atan2(
-    Math.max(8, camara3D.position.y - 0.8),
-    Math.max(20, distanciaHorizontal),
-  );
-  ajusteMiradaPesca = {
-    origen: jugador.inclinacion,
-    destino: Math.min(
-      jugador.inclinacion,
-      constrain(inclinacionObjetivo, -0.74, 0.1),
-    ),
-    progreso: 0,
-  };
+  // Sin animación de mirar hacia abajo: la cámara no se mueve al lanzar
+  ajusteMiradaPesca = null;
   inicioLanzamientoMundo.copy(calcularPuntaCañaMundo());
   posicionAnzueloMundo.copy(inicioLanzamientoMundo);
-  lanzamientoCaeEnAgua = true;
+  lanzamientoCaeEnAgua = enAgua;
+  preparacionLanzamiento = 0;
   anzueloLanzado = true;
   estadoLanzamiento = "lanzando";
   progresoLanzamiento = 0;
@@ -515,11 +543,24 @@ function buscarPuntoPescaEnfrente() {
 }
 
 function calcularPuntaCañaMundo() {
+  // El origen local (0, 0, 0) de la malla del anzuelo de la caña (`fishing_rod_hook`)
+  // está exactamente en la punta superior de la caña.
+  if (mallaHookActiva && cañaPesca) {
+    cañaPesca.updateMatrixWorld(true);
+    return mallaHookActiva.localToWorld(new THREE.Vector3(0, 0, 0));
+  }
+  if (puntaCañaLocalLista && cañaPesca) {
+    cañaPesca.updateMatrixWorld(true);
+    return cañaPesca.localToWorld(puntaCañaLocal.clone());
+  }
   const puntaLocal = new THREE.Vector3(3.0, -3.0, -1.4).add(puntaCaña);
   return puntaLocal.applyQuaternion(camara3D.quaternion).add(camara3D.position);
 }
 
 function actualizarPosicionAnzueloEnArco(progreso) {
+  // Interpola siempre desde la punta ACTUAL de la caña para que el anzuelo
+  // salga de la punta y vuelva a la punta aunque el jugador o la caña se muevan.
+  inicioLanzamientoMundo.copy(calcularPuntaCañaMundo());
   posicionAnzueloMundo
     .copy(inicioLanzamientoMundo)
     .lerp(destinoPescaMundo, progreso);
@@ -551,6 +592,14 @@ function retraerAnzuelo() {
 function actualizarLanzamientoAnzuelo() {
   const dt = Math.min(deltaTime / 1000, 0.05);
   if (estadoLanzamiento === "lanzando") {
+    // Fase 1: preparación. La caña se echa hacia atrás y el anzuelo cuelga de la punta.
+    if (preparacionLanzamiento < TIEMPO_PREPARACION_LANZAMIENTO) {
+      preparacionLanzamiento += dt;
+      inicioLanzamientoMundo.copy(calcularPuntaCañaMundo());
+      posicionAnzueloMundo.copy(inicioLanzamientoMundo);
+      return;
+    }
+    // Fase 2: latigazo. El anzuelo sale disparado desde la punta de la caña en arco.
     progresoLanzamiento = Math.min(1, progresoLanzamiento + dt * 1.05);
     actualizarPosicionAnzueloEnArco(progresoLanzamiento);
     if (progresoLanzamiento >= 1) {
@@ -560,10 +609,13 @@ function actualizarLanzamientoAnzuelo() {
         faseSalpicadura = 1;
         esperaMordida = random(2, 6);
       } else {
+        mostrarMensaje("Ahí no hay agua. Apuntá hacia el lago para pescar.");
         estadoLanzamiento = "retrayendo";
       }
     }
   } else if (estadoLanzamiento === "retrayendo") {
+    // El anzuelo vuelve a la punta de la caña (que se mueve), no a donde estaba al lanzar
+    inicioLanzamientoMundo.copy(calcularPuntaCañaMundo());
     progresoLanzamiento = Math.max(0, progresoLanzamiento - dt * 1.8);
     actualizarPosicionAnzueloEnArco(progresoLanzamiento);
     if (progresoLanzamiento === 0) retraerAnzuelo();
@@ -698,7 +750,8 @@ function cargarCañaTiendaEnEscena() {
       const centro = caja.getCenter(new THREE.Vector3());
       const tamaño = caja.getSize(new THREE.Vector3());
       const escala =
-        (TAMAÑO_CELDA * 0.82) / Math.max(tamaño.x, tamaño.y, tamaño.z);
+        (TAMAÑO_CELDA * 0.82 * TIENDA_FACTOR) /
+        Math.max(tamaño.x, tamaño.y, tamaño.z);
 
       modeloCañaTienda.position.sub(centro);
       modeloCañaTienda.scale.setScalar(escala);
@@ -724,7 +777,11 @@ function cargarCañaTiendaEnEscena() {
       modeloCañaTienda.rotation.set(1.5, -0.25, 0.2);
 
       // Posición dentro de la casa de pesca
-      posicionBaseCaña.set(TIENDA.posicion.x - 10, 38, TIENDA.posicion.y - 44);
+      posicionBaseCaña.set(
+        TIENDA.posicion.x - 10 * TIENDA_FACTOR,
+        38 * TIENDA_FACTOR + TIENDA_AJUSTE_ALTURA,
+        TIENDA.posicion.y - 44 * TIENDA_FACTOR,
+      );
 
       grupoCañaTienda.position.copy(posicionBaseCaña);
       escena3D.add(grupoCañaTienda);
@@ -811,54 +868,235 @@ function dibujarIndicadorCañaTienda() {
   textAlign(LEFT, BASELINE);
 }
 
-function equiparCañaBambu() {
-  if (!cañaPesca) return;
-  const cargador = new THREE.GLTFLoader();
-  cargador.load(
-    "models/bamboo_fishing_rod/scene.gltf",
-    (resultado) => {
-      while (cañaPesca.children.length > 0) {
-        cañaPesca.remove(cañaPesca.children[0]);
-      }
-      const modelo = resultado.scene;
-      const caja = new THREE.Box3().setFromObject(modelo);
-      const centro = caja.getCenter(new THREE.Vector3());
-      const tamaño = caja.getSize(new THREE.Vector3());
-      const escala = 3.5 / Math.max(tamaño.x, tamaño.y, tamaño.z);
+// ===== CAÑA EN MANO =====
+// Modelos disponibles. Se cargan una sola vez y se reutilizan al cambiar de caña.
+const MODELOS_CAÑA = {
+  basica: { ruta: "models/fishing_rod/scene.gltf", ocultar: [] },
+  bambu: { ruta: "models/bamboo_fishing_rod/scene.gltf", ocultar: ["robe"] },
+};
+const cacheModelosCaña = {};
+let cañaVisualActual = null;
+// Malla del anzuelo+tanza propia de la caña (`fishing_rod_hook_0`).
+// Cuando no se pesca queda recogida colgando de la punta; cuando se lanza se estira hacia el agua.
+let mallaHookActiva = null;
+const puntaCañaLocal = new THREE.Vector3(-1.01, 3.3, -4.35);
+let puntaCañaLocalLista = true;
 
-      modelo.position.sub(centro);
-      modelo.scale.setScalar(escala);
-      modelo.position.set(6, -0.8, 6);
-      modelo.rotation.set(0.4, 0.2, 0.5);
+function _prepararMallaHook(malla) {
+  malla.geometry = malla.geometry.clone();
+  const attr = malla.geometry.attributes.position;
+  malla.userData.posicionesBase = new Float32Array(attr.array);
+  malla.frustumCulled = false;
+  malla.renderOrder = 20;
+  if (malla.material) {
+    malla.material = malla.material.clone();
+    malla.material.side = THREE.DoubleSide;
+    malla.material.depthTest = false;
+    malla.material.needsUpdate = true;
+  }
+}
+
+// Carga (o reutiliza) el modelo de una caña y prepara su anzuelo integrado.
+function obtenerModeloCaña(tipo, alTerminar) {
+  const config = MODELOS_CAÑA[tipo];
+  if (!config) return;
+  if (cacheModelosCaña[tipo]) {
+    alTerminar(cacheModelosCaña[tipo]);
+    return;
+  }
+
+  // Para la caña de bambú nos aseguramos de tener cargada la básica primero,
+  // así reutilizamos el mismo anzuelo colgante en la punta.
+  if (tipo === "bambu" && !cacheModelosCaña.basica) {
+    obtenerModeloCaña("basica", () => obtenerModeloCaña("bambu", alTerminar));
+    return;
+  }
+
+  new THREE.GLTFLoader().load(
+    config.ruta,
+    (resultado) => {
+      const modelo = resultado.scene;
+      let mallaHook = null;
+
       modelo.traverse((objeto) => {
-        if (objeto.name && objeto.name.toLowerCase().includes("robe")) {
+        const nombre = (objeto.name || "").toLowerCase();
+        if (config.ocultar.some((n) => nombre.includes(n))) {
           objeto.visible = false;
           return;
         }
-        if (!objeto.isMesh || !objeto.material) return;
-        objeto.material.side = THREE.DoubleSide;
-        objeto.material.depthTest = false;
-        objeto.material.needsUpdate = true;
+        if (!objeto.isMesh) return;
+        if (nombre.includes("hook")) {
+          mallaHook = objeto;
+        }
+        if (objeto.material) {
+          objeto.material.side = THREE.DoubleSide;
+          objeto.material.depthTest = false;
+          objeto.material.needsUpdate = true;
+        }
       });
-      modelo.renderOrder = 20;
-      cañaPesca.add(modelo);
-      if (typeof tieneCañaBambu !== "undefined" && tieneCañaBambu) {
-        equiparCañaBambu();
+
+      const contenedor = new THREE.Group();
+
+      if (tipo === "basica") {
+        const caja = new THREE.Box3().setFromObject(modelo);
+        const tamaño = caja.getSize(new THREE.Vector3());
+        const escala = 3.5 / Math.max(tamaño.x, tamaño.y, tamaño.z);
+
+        modelo.scale.setScalar(escala);
+        modelo.position.set(6, -0.8, 6);
+        modelo.rotation.set(0.4, 0.2, 0.5);
+        modelo.renderOrder = 20;
+        contenedor.add(modelo);
+        contenedor.updateMatrixWorld(true);
+
+        let matrizHookEnCaña = null;
+        if (mallaHook) {
+          _prepararMallaHook(mallaHook);
+          matrizHookEnCaña = mallaHook.matrixWorld.clone();
+        }
+        const punta = mallaHook
+          ? new THREE.Vector3(0, 0, 0).applyMatrix4(matrizHookEnCaña)
+          : new THREE.Vector3(-1.01, 3.3, -4.35);
+
+        cacheModelosCaña.basica = {
+          modelo: contenedor,
+          mallaHook,
+          matrizHookEnCaña,
+          punta,
+        };
+        alTerminar(cacheModelosCaña.basica);
+      } else {
+        // Alineamos la caña de bambú en la misma posición de mano y punta que la básica
+        modelo.scale.setScalar(0.805);
+        modelo.position.set(-0.008, 1.276, -5.166);
+        modelo.rotation.set(1.1765, 0.5389, 0);
+        modelo.renderOrder = 20;
+        contenedor.add(modelo);
+
+        const basica = cacheModelosCaña.basica;
+        if (basica && basica.mallaHook && basica.matrizHookEnCaña) {
+          mallaHook = new THREE.Mesh(
+            basica.mallaHook.geometry,
+            basica.mallaHook.material,
+          );
+          _prepararMallaHook(mallaHook);
+          basica.matrizHookEnCaña.decompose(
+            mallaHook.position,
+            mallaHook.quaternion,
+            mallaHook.scale,
+          );
+          contenedor.add(mallaHook);
+        }
+
+        const punta = basica
+          ? basica.punta.clone()
+          : new THREE.Vector3(-1.01, 3.3, -4.35);
+
+        cacheModelosCaña[tipo] = {
+          modelo: contenedor,
+          mallaHook,
+          punta,
+        };
+        alTerminar(cacheModelosCaña[tipo]);
       }
     },
     undefined,
-    (error) => console.error("No se pudo equipar la caña de bambú:", error),
+    (error) => console.error("No se pudo cargar la caña " + tipo + ":", error),
   );
+}
+
+// Restaura o estira el anzuelo propio de la caña (`fishing_rod_hook_0`).
+// Cuando `estirado` es false, los vértices vuelven a su posición original (recogido en la caña).
+// Cuando `estirado` es true, la tanza sale de la punta (0,0,0) y el anzuelo viaja hasta `finalMundo`.
+function actualizarGeometriaHookCaña(estirado, inicioMundo, finalMundo) {
+  if (!mallaHookActiva || !mallaHookActiva.geometry) return;
+  const attr = mallaHookActiva.geometry.attributes.position;
+  const base = mallaHookActiva.userData.posicionesBase;
+  if (!attr || !base) return;
+  const arr = attr.array;
+
+  if (!estirado) {
+    arr.set(base);
+    attr.needsUpdate = true;
+    return;
+  }
+
+  mallaHookActiva.updateMatrixWorld(true);
+  const distancia = inicioMundo.distanceTo(finalMundo);
+  const sagMax = Math.min(3.2, distancia * 0.008);
+  // Escala progresiva con la distancia para que el anzuelo de la caña se siga viendo en el agua
+  const escalaHook = Math.max(1, Math.min(11, distancia / 16));
+  const puntoTemp = new THREE.Vector3();
+
+  const puntoEnCurvaLocal = (tramo) => {
+    puntoTemp.copy(inicioMundo).lerp(finalMundo, tramo);
+    puntoTemp.y -= Math.sin(tramo * Math.PI) * sagMax;
+    return mallaHookActiva.worldToLocal(puntoTemp);
+  };
+
+  const p0 = puntoEnCurvaLocal(0).clone();
+  const p1 = puntoEnCurvaLocal(1 / 3).clone();
+  const p2 = puntoEnCurvaLocal(2 / 3).clone();
+  const p3 = puntoEnCurvaLocal(1).clone();
+
+  const totalVertices = attr.count;
+  for (let i = 0; i < totalVertices; i++) {
+    const idx = i * 3;
+    const x0 = base[idx];
+    const y0 = base[idx + 1];
+    const z0 = base[idx + 2];
+
+    if (z0 > -1.6) {
+      // Vértices de la tanza (anillos en z ≈ 0, -0.56, -1.12)
+      let pCentro = p0;
+      if (z0 < -0.84) pCentro = p2;
+      else if (z0 < -0.28) pCentro = p1;
+      arr[idx] = pCentro.x + x0;
+      arr[idx + 1] = pCentro.y + y0;
+      arr[idx + 2] = pCentro.z;
+    } else {
+      // Vértices del anzuelo en el extremo de la tanza (z0 <= -1.60, unidos en z = -1.68)
+      arr[idx] = p3.x + x0 * escalaHook;
+      arr[idx + 1] = p3.y + y0 * escalaHook;
+      arr[idx + 2] = p3.z + (z0 + 1.68) * escalaHook;
+    }
+  }
+  attr.needsUpdate = true;
+}
+
+// Cambia la caña que se sostiene (reemplaza la anterior).
+function equiparCaña(tipo) {
+  if (!cañaPesca) return;
+  obtenerModeloCaña(tipo, (info) => {
+    // Si mientras cargaba se eligió otra caña, no pisar la elección más reciente
+    const deseada =
+      typeof cañaEquipada !== "undefined" ? cañaEquipada : "basica";
+    if (deseada !== tipo) return;
+    while (cañaPesca.children.length > 0) {
+      cañaPesca.remove(cañaPesca.children[0]);
+    }
+    cañaPesca.add(info.modelo);
+    mallaHookActiva = info.mallaHook || null;
+    puntaCañaLocal.copy(info.punta);
+    puntaCañaLocalLista = true;
+    cañaVisualActual = tipo;
+  });
+}
+
+// Compatibilidad: equipa la caña de bambú
+function equiparCañaBambu() {
+  equiparCaña("bambu");
 }
 
 function cargarKiwifinaEnEscena() {
   if (!TIENDA.posicion) return;
 
-  const escalaRelativa = 0.7; // Mismo tamaño que el jugador (altura ~45 unidades)
-  const offsetX = 28;
-  const offsetZ = -28;
+  // Todo se multiplica por TIENDA_FACTOR para escalar y moverse junto con la tienda
+  const escalaRelativa = 0.7 * TIENDA_FACTOR; // 0.7 = mismo tamaño que el jugador (altura ~45)
+  const offsetX = 28 * TIENDA_FACTOR;
+  const offsetZ = -28 * TIENDA_FACTOR;
   const rotacionY = -Math.PI / 2;
-  const posYExtra = -5;
+  const posYExtra = -5 * TIENDA_FACTOR + TIENDA_AJUSTE_ALTURA;
 
   const cargadorMTL = new THREE.MTLLoader();
   cargadorMTL.setPath("models/3D/");
@@ -919,47 +1157,22 @@ function cargarCañaPesca() {
   grupoAnzuelo = new THREE.Group();
   escena3D.add(grupoAnzuelo);
 
-  const cargador = new THREE.GLTFLoader();
-  cargador.load(
-    "models/fishing_rod/scene.gltf",
-    (resultado) => {
-      const modelo = resultado.scene;
-      const caja = new THREE.Box3().setFromObject(modelo);
-      const centro = caja.getCenter(new THREE.Vector3());
-      const tamaño = caja.getSize(new THREE.Vector3());
-      const escala = 3.5 / Math.max(tamaño.x, tamaño.y, tamaño.z);
+  // Caña que se sostiene (básica o de bambú, según la guardada/equipada)
+  equiparCaña(typeof cañaEquipada !== "undefined" ? cañaEquipada : "basica");
 
-      modelo.position.sub(centro);
-      modelo.scale.setScalar(escala);
-      modelo.position.set(6, -0.8, 6);
-      modelo.rotation.set(0.4, 0.2, 0.5);
-      modelo.traverse((objeto) => {
-        if (!objeto.isMesh || !objeto.material) return;
-        objeto.material.side = THREE.DoubleSide;
-        objeto.material.depthTest = false;
-        objeto.material.needsUpdate = true;
-      });
-      modelo.renderOrder = 20;
-      cañaPesca.add(modelo);
-      if (typeof tieneCañaBambu !== "undefined" && tieneCañaBambu) {
-        equiparCañaBambu();
-      }
-    },
-    undefined,
-    (error) => console.error("No se pudo cargar la caña:", error),
-  );
-
-  const puntosLinea = Array.from({ length: 13 }, () => new THREE.Vector3());
+  const puntosLinea = Array.from({ length: 17 }, () => new THREE.Vector3());
   const geometriaLinea = new THREE.BufferGeometry().setFromPoints(puntosLinea);
   lineaPesca = new THREE.Line(
     geometriaLinea,
     new THREE.LineBasicMaterial({
-      color: 0xf5f2dd,
+      color: 0x1b1f26,
       transparent: true,
-      opacity: 0.92,
+      opacity: 0.95,
+      depthTest: false,
       depthWrite: false,
     }),
   );
+  lineaPesca.renderOrder = 19;
   lineaPesca.frustumCulled = false;
   lineaPesca.visible = false;
   grupoAnzuelo.add(lineaPesca);
@@ -982,68 +1195,6 @@ function cargarCañaPesca() {
 function crearFlotadorPesca() {
   flotadorPesca = new THREE.Group();
   flotadorPesca.visible = false;
-
-  const rojo = new THREE.MeshStandardMaterial({
-    color: 0xe34b42,
-    roughness: 0.78,
-    flatShading: true,
-  });
-  const marfil = new THREE.MeshStandardMaterial({
-    color: 0xf3e8c8,
-    roughness: 0.84,
-    flatShading: true,
-  });
-  const dorado = new THREE.MeshStandardMaterial({
-    color: 0xd9a94e,
-    metalness: 0.35,
-    roughness: 0.55,
-    flatShading: true,
-  });
-
-  const radioCuerpo = 0.92;
-  const arriba = new THREE.Mesh(
-    new THREE.SphereGeometry(radioCuerpo, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2),
-    rojo,
-  );
-  arriba.scale.set(1, 0.76, 1);
-  arriba.castShadow = true;
-  flotadorPesca.add(arriba);
-
-  const abajo = new THREE.Mesh(
-    new THREE.SphereGeometry(
-      radioCuerpo,
-      8,
-      5,
-      0,
-      Math.PI * 2,
-      Math.PI / 2,
-      Math.PI / 2,
-    ),
-    marfil,
-  );
-  abajo.scale.set(1, 0.76, 1);
-  flotadorPesca.add(abajo);
-
-  const banda = new THREE.Mesh(
-    new THREE.TorusGeometry(0.72, 0.075, 4, 10),
-    dorado,
-  );
-  banda.rotation.x = Math.PI / 2;
-  flotadorPesca.add(banda);
-
-  const antena = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.075, 0.11, 0.64, 6),
-    rojo,
-  );
-  antena.position.y = 1.16;
-  flotadorPesca.add(antena);
-
-  const puntaAntena = new THREE.Mesh(
-    new THREE.SphereGeometry(0.13, 6, 4),
-    dorado,
-  );
-  puntaAntena.position.y = 1.5;
-  flotadorPesca.add(puntaAntena);
 
   ondasFlotador = [];
   for (let indice = 0; indice < 2; indice++) {
@@ -1108,6 +1259,35 @@ function actualizarFlotadorPesca(dt) {
   });
 }
 
+// Animación de la caña al lanzar: 1) se echa hacia atrás (preparación),
+// 2) latigazo hacia adelante cuando sale el anzuelo, 3) vuelve a su posición.
+// Devuelve las rotaciones extra (x, z) en radianes que se suman a la pose base.
+function calcularAnimacionCaña() {
+  const suavizar = (t) => t * t * (3 - 2 * t);
+  const ATRAS = 0.62; // rotateX positivo = punta hacia el jugador
+  const ADELANTE = -0.5; // rotateX negativo = punta hacia el agua
+
+  if (estadoLanzamiento === "lanzando") {
+    if (preparacionLanzamiento < TIEMPO_PREPARACION_LANZAMIENTO) {
+      const t = suavizar(preparacionLanzamiento / TIEMPO_PREPARACION_LANZAMIENTO);
+      return { x: ATRAS * t, z: 0.1 * t };
+    }
+    const p = progresoLanzamiento;
+    if (p < 0.2) {
+      // Latigazo rápido de atrás hacia adelante
+      const t = suavizar(p / 0.2);
+      return { x: lerp(ATRAS, ADELANTE, t), z: lerp(0.1, -0.12, t) };
+    }
+    // Recuperación suave hasta la pose base
+    const t = suavizar((p - 0.2) / 0.8);
+    return { x: lerp(ADELANTE, 0, t), z: lerp(-0.12, 0, t) };
+  }
+  if (estadoLanzamiento === "retrayendo") {
+    return { x: Math.sin(progresoLanzamiento * Math.PI) * 0.22, z: 0 };
+  }
+  return { x: 0, z: 0 };
+}
+
 function actualizarCañaPesca() {
   if (!cañaPesca || !lineaPesca || !anzueloPesca) return;
 
@@ -1117,27 +1297,35 @@ function actualizarCañaPesca() {
   cañaPesca.position.copy(camara3D.position).add(desplazamiento);
   cañaPesca.quaternion.copy(camara3D.quaternion);
 
-  const animacionLanzamiento =
-    estadoLanzamiento === "lanzando"
-      ? Math.sin(progresoLanzamiento * Math.PI)
-      : estadoLanzamiento === "retrayendo"
-        ? Math.sin(progresoLanzamiento * Math.PI) * 0.45
-        : 0;
+  const animacionCaña = calcularAnimacionCaña();
   const animacionTiron =
     sistemaCaptura.estado === "tiron_fuerte"
       ? Math.sin(frameCount * 0.65) * 0.12
       : 0;
-  cañaPesca.rotateX(0.12 + animacionLanzamiento * 0.42 + animacionTiron);
-  cañaPesca.rotateZ(-0.18 - animacionLanzamiento * 0.12);
+  cañaPesca.rotateX(0.12 + animacionCaña.x + animacionTiron);
+  cañaPesca.rotateZ(-0.18 + animacionCaña.z);
 
-  const visible = anzueloLanzado;
-  lineaPesca.visible = visible;
-  anzueloPesca.visible = visible;
-  if (!visible) return;
+  // Mientras no se está pescando (o durante la preparación hacia atrás),
+  // el anzuelo queda recogido en la propia caña colgando de la punta.
+  // Al lanzar, ese mismo anzuelo y la línea se estiran desde la punta hacia el agua.
+  const enPreparacion =
+    estadoLanzamiento === "lanzando" &&
+    preparacionLanzamiento < TIEMPO_PREPARACION_LANZAMIENTO;
+  const estirado = anzueloLanzado && !enPreparacion;
+
+  anzueloPesca.visible = false;
+  if (!estirado) {
+    lineaPesca.visible = false;
+    actualizarGeometriaHookCaña(false);
+    return;
+  }
 
   const inicio = calcularPuntaCañaMundo();
   const final = new THREE.Vector3();
-  if (estadoLanzamiento === "lanzando" || estadoLanzamiento === "retrayendo") {
+  if (
+    estadoLanzamiento === "lanzando" ||
+    estadoLanzamiento === "retrayendo"
+  ) {
     final.copy(posicionAnzueloMundo);
   } else {
     final.set(
@@ -1147,6 +1335,9 @@ function actualizarCañaPesca() {
     );
   }
 
+  actualizarGeometriaHookCaña(true, inicio, final);
+
+  lineaPesca.visible = true;
   const posiciones = lineaPesca.geometry.attributes.position.array;
   const cantidadPuntos = posiciones.length / 3;
   const distancia = inicio.distanceTo(final);
@@ -1161,13 +1352,6 @@ function actualizarCañaPesca() {
   }
   lineaPesca.geometry.attributes.position.needsUpdate = true;
   lineaPesca.geometry.computeBoundingSphere();
-
-  if (estadoLanzamiento === "lanzando" || estadoLanzamiento === "retrayendo") {
-    anzueloPesca.position.copy(posicionAnzueloMundo);
-  } else {
-    anzueloPesca.position.set(destinoPescaMundo.x, -0.42, destinoPescaMundo.z);
-  }
-  anzueloPesca.rotation.z = Math.sin(frameCount * 0.08) * 0.18;
 }
 
 function crearSuperficieLago() {
@@ -1506,18 +1690,23 @@ function cargarTiendaEnEscena() {
 
       const centro = caja.getCenter(new THREE.Vector3());
 
-      // Escala proporcionada y adecuada para entrar a la casa
-      const escala = 19.0;
+      // La escala se controla con TIENDA_ESCALA (tienda.js)
+      const escala = TIENDA_ESCALA;
 
       modelo.position.sub(centro);
       modelo.scale.setScalar(escala);
       modelo.rotation.y = -Math.PI / 2;
 
-      // Nivelar para que el piso de madera quede exactamente al nivel del suelo caminable
-      const alturaPiso = (centro.y - caja.min.y) * escala - 226.5;
+      // Nivelar para que el piso de madera quede al nivel del suelo caminable.
+      // El ajuste se calibró con la escala base y crece proporcionalmente con la escala,
+      // así el piso sigue a nivel sin importar el tamaño.
+      const alturaPiso =
+        ((centro.y - caja.min.y) * TIENDA_ESCALA_BASE - 226.5) * TIENDA_FACTOR +
+        TIENDA_AJUSTE_ALTURA;
       modelo.position.set(TIENDA.posicion.x, alturaPiso, TIENDA.posicion.y);
       escena3D.add(modelo);
       TIENDA.objetoMundo = modelo;
+      tiendaRegistrarColisiones(modelo);
     },
     undefined,
     (error) => console.error("No se pudo cargar la casa de pesca 3D:", error),
@@ -1779,9 +1968,22 @@ function esArenaEnCosta(fila, columna) {
 function actualizarCamara3D() {
   const descensoAgachado =
     (jugador.factorAgachado || 0) * (TAMAÑO_CELDA * 0.35);
+  // Elevación del piso de la tienda bajo el jugador (suavizada)
+  const objetivoPiso =
+    typeof tiendaAlturaPiso === "function"
+      ? tiendaAlturaPiso(
+          jugador.posicion.x,
+          jugador.posicion.y,
+          jugador.alturaPiso || 0,
+        )
+      : 0;
+  jugador.alturaPiso = lerp(jugador.alturaPiso || 0, objetivoPiso, 0.35);
   camara3D.position.set(
     jugador.posicion.x,
-    TAMAÑO_CELDA * 0.7 + jugador.alturaSalto - descensoAgachado,
+    TAMAÑO_CELDA * 0.7 +
+      jugador.alturaPiso +
+      jugador.alturaSalto -
+      descensoAgachado,
     jugador.posicion.y,
   );
   camara3D.rotation.set(jugador.inclinacion, -jugador.angulo - Math.PI / 2, 0);
