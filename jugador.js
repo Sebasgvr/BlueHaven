@@ -1,3 +1,6 @@
+// Colisiones de los árboles que forman el borde del mapa.
+const colisionesArbolesBorde = [];
+
 class Jugador {
   constructor(x, y) {
     this.posicion = createVector(x, y);
@@ -52,6 +55,12 @@ class Jugador {
         if (esPared(cx, cy) || esAgua(cx, cy) || tiendaColisiona(pos)) return true;
       }
     }
+
+    for (const arbol of colisionesArbolesBorde) {
+      if (Math.hypot(pos.x - arbol.x, pos.y - arbol.z) < arbol.radio + m) {
+        return true;
+      }
+    }
     return false;
   }
 
@@ -60,7 +69,7 @@ class Jugador {
   }
 
   girarMouse(cantidad) {
-    this.angulo += cantidad * 0.0025;
+    this.angulo += cantidad * 0.00125;
   }
 
   mirar(cantidad) {
@@ -68,7 +77,7 @@ class Jugador {
   }
 
   mirarMouse(cantidad) {
-    this.inclinacion = constrain(this.inclinacion + cantidad * 0.0025, -0.8, 0.8);
+    this.inclinacion = constrain(this.inclinacion + cantidad * 0.00125, -0.8, 0.8);
   }
 
   saltar() {

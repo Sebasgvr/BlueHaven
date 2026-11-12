@@ -563,7 +563,7 @@ class SistemaCaptura {
     if (this.estado === "capturado") {
       fill(8, 12, 18, 190);
       noStroke();
-      rect(cx - 235, cy - 118, 470, 236, 16);
+      rect(cx - 235, cy - 118, 470, 290, 16);
 
       fill(cTxt);
       textAlign(CENTER, CENTER);
@@ -601,6 +601,20 @@ class SistemaCaptura {
           cx,
           cy + 82,
         );
+      }
+
+      // Dato educativo del pez capturado.
+      const pezEnciclopedia =
+        typeof ENCICLOPEDIA !== "undefined" && ENCICLOPEDIA.peces
+          ? ENCICLOPEDIA.peces.find((p) => p.nombre === this.pez.nombre)
+          : null;
+      if (pezEnciclopedia && pezEnciclopedia.datoCurioso) {
+        fill(120, 200, 255);
+        textSize(12);
+        text("Dato educativo:", cx, cy + 108);
+        fill(210, 230, 255);
+        textSize(11);
+        text(pezEnciclopedia.datoCurioso, cx, cy + 128, 420, 70);
       }
     } else {
       fill(0, 0, 0, 150);

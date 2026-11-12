@@ -7,7 +7,7 @@ const TIENDA = {
 
 function tiendaInicializar() {
   // Coordenadas de columna y fila de la tienda
-  TIENDA.posicion = createVector(TAMAÑO_CELDA * 28.5, TAMAÑO_CELDA * 19);
+  TIENDA.posicion = createVector(TAMAÑO_CELDA * 22.5, TAMAÑO_CELDA * 13);
 }
 
 function tiendaColisiona(posicion) {

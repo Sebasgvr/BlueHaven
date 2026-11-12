@@ -51,10 +51,10 @@ function setup() {
   interfaz.style.zIndex = "2";
   interfaz.style.pointerEvents = "none";
 
-  jugador = new Jugador(TAMAÑO_CELDA * 32, TAMAÑO_CELDA * 19);
+  jugador = new Jugador(TAMAÑO_CELDA * 26, TAMAÑO_CELDA * 13);
 
   sistemaCaptura = new SistemaCaptura();
-  TIENDA.posicion = createVector(TAMAÑO_CELDA * 28.5, TAMAÑO_CELDA * 19);
+  TIENDA.posicion = createVector(TAMAÑO_CELDA * 22.5, TAMAÑO_CELDA * 13);
   if (typeof cargarProgresoLocal === "function") cargarProgresoLocal();
   inicializarEscena3D();
 }
@@ -630,34 +630,18 @@ function inicializarEscena3D() {
   escena3D.background = texturaCielo;
 
   // Niebla para profundidad (estilo retro)
-  escena3D.fog = new THREE.Fog(0xc8e8f8, TAMAÑO_CELDA * 15, TAMAÑO_CELDA * 65);
+  escena3D.fog = new THREE.Fog(0xc8e8f8, TAMAÑO_CELDA * 12, TAMAÑO_CELDA * 38);
 
   inicializarTexturasSuelo();
+  crearEntornoExterior();
 
-  const cargador = new THREE.TextureLoader();
-
-  const texturaPared3D = cargador.load("textures/mundo/pared.png");
-  texturaPared3D.wrapS = THREE.RepeatWrapping;
-  texturaPared3D.wrapT = THREE.RepeatWrapping;
-  texturaPared3D.magFilter = THREE.NearestFilter;
-  texturaPared3D.minFilter = THREE.NearestFilter;
-  texturaPared3D.repeat.set(1, 1);
-
-  const materialPared = new THREE.MeshLambertMaterial({ map: texturaPared3D });
   for (let fila = 0; fila < MAPA_ALTO; fila++) {
     for (let columna = 0; columna < MAPA_ANCHO; columna++) {
+      // El agua se cubre con la superficie del lago.
+      if (MAPA[fila][columna] === 3) continue;
       const x = (columna + 0.5) * TAMAÑO_CELDA;
       const z = (fila + 0.5) * TAMAÑO_CELDA;
-      if (MAPA[fila][columna] === 1) {
-        const pared = new THREE.Mesh(
-          new THREE.BoxGeometry(TAMAÑO_CELDA, TAMAÑO_CELDA, TAMAÑO_CELDA),
-          materialPared,
-        );
-        pared.position.set(x, TAMAÑO_CELDA / 2, z);
-        escena3D.add(pared);
-      } else if (MAPA[fila][columna] === 0 || MAPA[fila][columna] === 2) {
-        escena3D.add(crearBaldosaSuelo(fila, columna, x, z));
-      }
+      escena3D.add(crearBaldosaSuelo(fila, columna, x, z));
     }
   }
 
@@ -667,6 +651,188 @@ function inicializarEscena3D() {
   cargarKiwifinaEnEscena();
   cargarCañaTiendaEnEscena();
   cargarCañaPesca();
+  cargarArbolesEnEscena();
+}
+
+// Piso exterior y muro de bosque: dan la sensación de que el mapa sigue más allá
+// del cinturón de árboles, en vez de terminar en el vacío.
+function crearEntornoExterior() {
+  if (!escena3D) return;
+
+  const anchoMapa = MAPA_ANCHO * TAMAÑO_CELDA;
+  const altoMapa = MAPA_ALTO * TAMAÑO_CELDA;
+
+  // Piso grande debajo y alrededor del mapa. Queda apenas por debajo del piso
+  // jugable para no pelear con las baldosas.
+  const texturaSueloExterior = crearTexturaSueloExterior();
+  texturaSueloExterior.repeat.set(78, 78);
+  const materialSueloExterior = new THREE.MeshLambertMaterial({
+    map: texturaSueloExterior,
+    color: 0xffffff,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
+  });
+  const pisoExterior = new THREE.Mesh(
+    new THREE.PlaneGeometry(10000, 10000),
+    materialSueloExterior,
+  );
+  pisoExterior.rotation.x = -Math.PI / 2;
+  pisoExterior.position.set(anchoMapa / 2, -2.0, altoMapa / 2);
+  escena3D.add(pisoExterior);
+
+  // Muro de bosque de fondo, detrás de la segunda fila de árboles.
+  const margen = TAMAÑO_CELDA * 4;
+  const alturaMuro = TAMAÑO_CELDA * 12;
+  const anchoNorteSur = anchoMapa + margen * 2;
+  const anchoEsteOeste = altoMapa + margen * 2;
+
+  const texturaNS = crearTexturaMuroBosque();
+  texturaNS.repeat.set(anchoNorteSur / (TAMAÑO_CELDA * 4), 1);
+  const texturaEO = texturaNS.clone();
+  texturaEO.needsUpdate = true;
+  texturaEO.repeat.set(anchoEsteOeste / (TAMAÑO_CELDA * 4), 1);
+
+  const materialNS = new THREE.MeshBasicMaterial({
+    map: texturaNS,
+    fog: true,
+  });
+  const materialEO = new THREE.MeshBasicMaterial({
+    map: texturaEO,
+    fog: true,
+  });
+
+  const muroNorte = new THREE.Mesh(
+    new THREE.PlaneGeometry(anchoNorteSur, alturaMuro),
+    materialNS,
+  );
+  muroNorte.position.set(
+    anchoMapa / 2,
+    alturaMuro / 2 - 2.0,
+    -margen,
+  );
+  escena3D.add(muroNorte);
+
+  const muroSur = new THREE.Mesh(
+    new THREE.PlaneGeometry(anchoNorteSur, alturaMuro),
+    materialNS,
+  );
+  muroSur.position.set(
+    anchoMapa / 2,
+    alturaMuro / 2 - 2.0,
+    altoMapa + margen,
+  );
+  muroSur.rotation.y = Math.PI;
+  escena3D.add(muroSur);
+
+  const muroOeste = new THREE.Mesh(
+    new THREE.PlaneGeometry(anchoEsteOeste, alturaMuro),
+    materialEO,
+  );
+  muroOeste.position.set(
+    -margen,
+    alturaMuro / 2 - 2.0,
+    altoMapa / 2,
+  );
+  muroOeste.rotation.y = Math.PI / 2;
+  escena3D.add(muroOeste);
+
+  const muroEste = new THREE.Mesh(
+    new THREE.PlaneGeometry(anchoEsteOeste, alturaMuro),
+    materialEO,
+  );
+  muroEste.position.set(
+    anchoMapa + margen,
+    alturaMuro / 2 - 2.0,
+    altoMapa / 2,
+  );
+  muroEste.rotation.y = -Math.PI / 2;
+  escena3D.add(muroEste);
+}
+
+function crearTexturaSueloExterior() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#2f4a2a";
+  ctx.fillRect(0, 0, 64, 64);
+
+  const azar = crearAleatorioConSemilla(20261115);
+  for (let i = 0; i < 140; i++) {
+    const x = azar() * 64;
+    const y = azar() * 64;
+    const radio = 1 + azar() * 3;
+    ctx.fillStyle = azar() < 0.5 ? "#263f22" : "#3a5a32";
+    ctx.beginPath();
+    ctx.arc(x, y, radio, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const textura = new THREE.CanvasTexture(canvas);
+  textura.wrapS = THREE.RepeatWrapping;
+  textura.wrapT = THREE.RepeatWrapping;
+  textura.magFilter = THREE.NearestFilter;
+  textura.minFilter = THREE.NearestFilter;
+  return textura;
+}
+
+function crearTexturaMuroBosque() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+
+  // Arriba se funde con el color de la niebla/cielo; abajo es bosque oscuro.
+  const gradiente = ctx.createLinearGradient(0, 0, 0, 256);
+  gradiente.addColorStop(0, "#c8e8f8");
+  gradiente.addColorStop(0.28, "#8fb8b0");
+  gradiente.addColorStop(0.58, "#4f7a55");
+  gradiente.addColorStop(1, "#1f3a28");
+  ctx.fillStyle = gradiente;
+  ctx.fillRect(0, 0, 512, 256);
+
+  const azar = crearAleatorioConSemilla(20261114);
+  for (let i = 0; i < 100; i++) {
+    const x = azar() * 512;
+    const alto = 90 + azar() * 110;
+    const ancho = 12 + azar() * 28;
+    const base = 256;
+
+    ctx.fillStyle = "rgba(18, 34, 22, 0.85)";
+    ctx.fillRect(
+      x - ancho * 0.14,
+      base - alto * 0.55,
+      ancho * 0.28,
+      alto * 0.55,
+    );
+
+    for (let j = 0; j < 5; j++) {
+      const cx = x + (azar() - 0.5) * ancho;
+      const cy = base - alto * 0.55 - azar() * alto * 0.32;
+      const radio = ancho * (0.45 + azar() * 0.65);
+      ctx.fillStyle =
+        azar() < 0.5 ? "rgba(35, 72, 44, 0.9)" : "rgba(27, 56, 35, 0.9)";
+      ctx.beginPath();
+      ctx.ellipse(
+        cx,
+        cy,
+        radio,
+        radio * (0.7 + azar() * 0.4),
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
+  }
+
+  const textura = new THREE.CanvasTexture(canvas);
+  textura.wrapS = THREE.RepeatWrapping;
+  textura.wrapT = THREE.ClampToEdgeWrapping;
+  textura.magFilter = THREE.NearestFilter;
+  textura.minFilter = THREE.NearestFilter;
+  return textura;
 }
 
 let modeloCañaTienda = null;
@@ -907,6 +1073,311 @@ function cargarKiwifinaEnEscena() {
     (error) =>
       console.error("No se pudo cargar el material de kiwifina:", error),
   );
+}
+
+// Bosque: árboles repartidos por el pasto, con la base apoyada en el suelo.
+const ARBOLES_BOSQUE = {
+  cantidad: 120,
+  separacionMinima: TAMAÑO_CELDA * 0.9,
+  alturaObjetivo: TAMAÑO_CELDA * 5.0, // el personaje mide ~0.7 celdas de alto
+  semilla: 20261112,
+};
+
+// Cinturón de árboles que reemplaza los muros del borde.
+const ARBOLES_BORDE = {
+  alturaObjetivo: TAMAÑO_CELDA * 5.5,
+  semilla: 20261113,
+};
+
+// Segunda fila, un poco más alta y oscura, justo afuera del borde.
+const ARBOLES_EXTERIORES = {
+  alturaObjetivo: TAMAÑO_CELDA * 6.5,
+  semilla: 20261114,
+};
+
+// Generador pseudoaleatorio con semilla: el bosque queda igual en cada carga.
+function crearAleatorioConSemilla(semilla) {
+  let estado = semilla >>> 0;
+  return function () {
+    estado = (estado + 0x6d2b79f5) >>> 0;
+    let t = estado;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function cargarArbolesEnEscena() {
+  if (!escena3D) return;
+
+  const cargadorMTL = new THREE.MTLLoader();
+  cargadorMTL.setPath("models/3D/");
+  cargadorMTL.load(
+    "Modelo_arbol.mtl",
+    (materiales) => {
+      materiales.preload();
+      const cargadorOBJ = new THREE.OBJLoader();
+      cargadorOBJ.setMaterials(materiales);
+      cargadorOBJ.load(
+        "models/3D/Modelo_arbol.obj",
+        (modelo) => {
+          let radioTroncoNativo = 0;
+          modelo.traverse((objeto) => {
+            if (!objeto.isMesh || !objeto.material) return;
+            // Material propio por pieza para poder diferenciar tronco y copa.
+            objeto.material = objeto.material.clone();
+            objeto.material.side = THREE.DoubleSide;
+            objeto.material.polygonOffset = true;
+            objeto.material.polygonOffsetFactor = -1;
+            objeto.material.polygonOffsetUnits = -1;
+            if (objeto.material.specular) {
+              objeto.material.specular.setRGB(0.08, 0.08, 0.08);
+            }
+            if (objeto.material.shininess !== undefined) {
+              objeto.material.shininess = 4;
+            }
+            const cajaPieza = new THREE.Box3().setFromObject(objeto);
+            const esTronco = cajaPieza.max.y < 4.6;
+            if (esTronco) {
+              const radio = Math.max(
+                (cajaPieza.max.x - cajaPieza.min.x) / 2,
+                (cajaPieza.max.z - cajaPieza.min.z) / 2,
+              );
+              radioTroncoNativo = Math.max(radioTroncoNativo, radio);
+            }
+            // Si el modelo no trae textura, le damos colores de bosque.
+            if (!objeto.material.map && objeto.material.color) {
+              objeto.material.color.setHex(esTronco ? 0x8a6a4a : 0x75a84f);
+            }
+          });
+
+          const caja = new THREE.Box3().setFromObject(modelo);
+          const centro = caja.getCenter(new THREE.Vector3());
+          const tamaño = caja.getSize(new THREE.Vector3());
+          if (tamaño.y <= 0) return;
+
+          const azar = crearAleatorioConSemilla(ARBOLES_BOSQUE.semilla);
+          const posiciones = [];
+          const maxIntentos = 8000;
+
+          for (
+            let intento = 0;
+            intento < maxIntentos &&
+            posiciones.length < ARBOLES_BOSQUE.cantidad;
+            intento++
+          ) {
+            const columna = 1 + Math.floor(azar() * (MAPA_ANCHO - 2));
+            const fila = 1 + Math.floor(azar() * (MAPA_ALTO - 2));
+            const x =
+              (columna + 0.5) * TAMAÑO_CELDA +
+              (azar() - 0.5) * TAMAÑO_CELDA * 0.5;
+            const z =
+              (fila + 0.5) * TAMAÑO_CELDA +
+              (azar() - 0.5) * TAMAÑO_CELDA * 0.5;
+
+            if (!esSitioLibreParaArbol(x, z, posiciones)) continue;
+
+            const factorAltura = 0.92 + azar() * 0.24;
+            const escala =
+              (ARBOLES_BOSQUE.alturaObjetivo * factorAltura) / tamaño.y;
+
+            const arbol = modelo.clone(true);
+            // Centrar en horizontal y apoyar la base exactamente en y = 0.
+            arbol.position.set(-centro.x, -caja.min.y, -centro.z);
+
+            const grupo = new THREE.Group();
+            grupo.add(arbol);
+            grupo.scale.setScalar(escala);
+            grupo.rotation.y = azar() * Math.PI * 2;
+            grupo.position.set(x, 0.02, z);
+            escena3D.add(grupo);
+
+            posiciones.push({ x, z });
+          }
+
+          cargarArbolesBorde(modelo, caja, centro, tamaño, radioTroncoNativo);
+          cargarArbolesExteriores(modelo, caja, centro, tamaño);
+        },
+        undefined,
+        (error) => console.error("No se pudo cargar el árbol:", error),
+      );
+    },
+    undefined,
+    (error) =>
+      console.error("No se pudo cargar el material del árbol:", error),
+  );
+}
+
+function esSitioLibreParaArbol(x, z, posiciones) {
+  const columna = Math.floor(x / TAMAÑO_CELDA);
+  const fila = Math.floor(z / TAMAÑO_CELDA);
+  if (fila < 0 || columna < 0 || fila >= MAPA_ALTO || columna >= MAPA_ANCHO)
+    return false;
+  // Solo pasto limpio: ni paredes, ni agua, ni arena, ni tierra del lago.
+  if (MAPA[fila][columna] !== 0) return false;
+  if (obtenerSuelo(fila, columna) === 5) return false;
+
+  // Dejar libre la tienda, la kiwifina y el punto de aparición del jugador.
+  if (TIENDA.posicion) {
+    const distanciaTienda = Math.hypot(
+      x - TIENDA.posicion.x,
+      z - TIENDA.posicion.y,
+    );
+    if (distanciaTienda < TAMAÑO_CELDA * 5) return false;
+  }
+  if (jugador) {
+    const distanciaJugador = Math.hypot(
+      x - jugador.posicion.x,
+      z - jugador.posicion.y,
+    );
+    if (distanciaJugador < TAMAÑO_CELDA * 3) return false;
+  }
+
+  for (const otra of posiciones) {
+    if (
+      Math.hypot(x - otra.x, z - otra.z) <
+      ARBOLES_BOSQUE.separacionMinima
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Un árbol grande por cada celda del borde, formando un muro visual y sólido.
+function cargarArbolesBorde(modelo, caja, centro, tamaño, radioTroncoNativo) {
+  if (!escena3D) return;
+  colisionesArbolesBorde.length = 0;
+
+  const azar = crearAleatorioConSemilla(ARBOLES_BORDE.semilla);
+  for (let fila = 0; fila < MAPA_ALTO; fila++) {
+    for (let columna = 0; columna < MAPA_ANCHO; columna++) {
+      if (MAPA[fila][columna] !== 4) continue;
+
+      const x = (columna + 0.5) * TAMAÑO_CELDA;
+      const z = (fila + 0.5) * TAMAÑO_CELDA;
+      const factorAltura = 0.95 + azar() * 0.1;
+      const escala =
+        (ARBOLES_BORDE.alturaObjetivo * factorAltura) / tamaño.y;
+
+      const arbol = modelo.clone(true);
+      arbol.position.set(-centro.x, -caja.min.y, -centro.z);
+
+      const grupo = new THREE.Group();
+      grupo.add(arbol);
+      grupo.scale.setScalar(escala);
+      grupo.rotation.y = azar() * Math.PI * 2;
+      grupo.position.set(x, 0.02, z);
+      escena3D.add(grupo);
+
+      colisionesArbolesBorde.push({
+        x,
+        z,
+        radio: radioTroncoNativo * escala,
+      });
+    }
+  }
+}
+
+// Árboles de la segunda fila, afuera del mapa y desfasados media celda para
+// tapar los huecos entre los troncos del borde. No necesitan colisión: el
+// borde sólido ya impide salir.
+function cargarArbolesExteriores(modelo, caja, centro, tamaño) {
+  if (!escena3D || tamaño.y <= 0) return;
+
+  const modeloOscuro = modelo.clone(true);
+  modeloOscuro.traverse((objeto) => {
+    if (!objeto.isMesh || !objeto.material) return;
+    objeto.material = objeto.material.clone();
+    objeto.material.polygonOffset = true;
+    objeto.material.polygonOffsetFactor = -1;
+    objeto.material.polygonOffsetUnits = -1;
+    if (objeto.material.color) {
+      objeto.material.color.multiplyScalar(0.72);
+    }
+  });
+
+  const azar = crearAleatorioConSemilla(ARBOLES_EXTERIORES.semilla);
+  const posiciones = [];
+
+  // Arriba y abajo, en los límites de celda (media celda corridos respecto
+  // de los árboles del borde).
+  for (let columna = 0; columna <= MAPA_ANCHO; columna++) {
+    posiciones.push({
+      x: columna * TAMAÑO_CELDA,
+      z: -2 * TAMAÑO_CELDA,
+    });
+    posiciones.push({
+      x: columna * TAMAÑO_CELDA,
+      z: (MAPA_ALTO + 2) * TAMAÑO_CELDA,
+    });
+  }
+
+  // Izquierda y derecha, sin repetir las esquinas.
+  for (let fila = 1; fila < MAPA_ALTO; fila++) {
+    posiciones.push({
+      x: -2 * TAMAÑO_CELDA,
+      z: fila * TAMAÑO_CELDA,
+    });
+    posiciones.push({
+      x: (MAPA_ANCHO + 2) * TAMAÑO_CELDA,
+      z: fila * TAMAÑO_CELDA,
+    });
+  }
+
+  const instancias = posiciones.map((posicion) => ({
+    x: posicion.x,
+    z: posicion.z,
+    escala:
+      (ARBOLES_EXTERIORES.alturaObjetivo * (0.95 + azar() * 0.15)) /
+      tamaño.y,
+    rotacion: azar() * Math.PI * 2,
+  }));
+
+  // Las 126 copias se dibujan con instancing: mismo modelo, mismas piezas y
+  // materiales, pero unas pocas llamadas de dibujo en vez de miles.
+  const piezas = [];
+  modeloOscuro.traverse((objeto) => {
+    if (objeto.isMesh) piezas.push(objeto);
+  });
+  if (piezas.length === 0) return;
+
+  const arbolTemp = modeloOscuro.clone(true);
+  arbolTemp.position.set(-centro.x, -caja.min.y, -centro.z);
+  const piezasTemp = [];
+  arbolTemp.traverse((objeto) => {
+    if (objeto.isMesh) piezasTemp.push(objeto);
+  });
+  if (piezasTemp.length !== piezas.length) return;
+
+  const grupoTemp = new THREE.Group();
+  grupoTemp.add(arbolTemp);
+  const matricesPorPieza = piezas.map(() => []);
+
+  for (const instancia of instancias) {
+    grupoTemp.position.set(instancia.x, -1.98, instancia.z);
+    grupoTemp.rotation.y = instancia.rotacion;
+    grupoTemp.scale.setScalar(instancia.escala);
+    grupoTemp.updateMatrixWorld(true);
+
+    for (let i = 0; i < piezasTemp.length; i++) {
+      matricesPorPieza[i].push(piezasTemp[i].matrixWorld.clone());
+    }
+  }
+
+  for (let i = 0; i < piezas.length; i++) {
+    const malla = new THREE.InstancedMesh(
+      piezas[i].geometry,
+      piezas[i].material,
+      instancias.length,
+    );
+    for (let j = 0; j < instancias.length; j++) {
+      malla.setMatrixAt(j, matricesPorPieza[i][j]);
+    }
+    malla.instanceMatrix.needsUpdate = true;
+    malla.frustumCulled = false;
+    escena3D.add(malla);
+  }
 }
 
 function cargarCañaPesca() {
@@ -1531,6 +2002,7 @@ let texturaSueloCargada = false;
 function clasificarTerreno(f, c) {
   if (f < 0 || c < 0 || f >= MAPA_ALTO || c >= MAPA_ANCHO) return "pared";
   if (MAPA[f][c] === 1) return "pared";
+  if (MAPA[f][c] === 4) return "pasto";
   if (MAPA[f][c] === 3) return "agua";
   if (MAPA[f][c] === 2) return "arena";
   if (obtenerSuelo(f, c) === 5) return "tierra";
@@ -1724,7 +2196,12 @@ function obtenerMaterialBaldosa(clave) {
   tex.magFilter = THREE.NearestFilter;
   tex.minFilter = THREE.NearestFilter;
 
-  const mat = new THREE.MeshLambertMaterial({ map: tex });
+  const mat = new THREE.MeshLambertMaterial({
+    map: tex,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
+  });
   materialesSueloCache.set(clave, {
     material: mat,
     texture: tex,
