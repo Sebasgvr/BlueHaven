@@ -37,8 +37,18 @@ function mostrarMensaje(texto) {
   timerMensaje = 3000;
 }
 
-function agregarPez(pez) {
+// Busca el id real (de la base) de un pez por nombre, usando el catálogo
+// cargado al iniciar sesión (si está disponible).
+function obtenerIdPez(nombre) {
+  if (typeof catalogoEspecies === "undefined" || !catalogoEspecies) return null;
+  const encontrado = catalogoEspecies.find((p) => p.nombre === nombre);
+  return encontrado ? encontrado.id : null;
+}
+
+async function agregarPez(pez) {
+  const pezId = obtenerIdPez(pez.nombre);
   const ejemplar = {
+    pez_id: pezId,
     nombre: pez.nombre,
     rareza: pez.rareza,
     sprite: pez.sprite || null,
@@ -55,6 +65,21 @@ function agregarPez(pez) {
 
   inventario.push(ejemplar);
   if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
+
+  if (pezId) {
+    try {
+      const res = await fetch("api/guardar_captura.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pez_id: pezId }),
+      });
+      const data = await res.json();
+      if (data && data.ok) ejemplar.id = data.inventario_id;
+    } catch (err) {
+      // Sin servidor PHP disponible: se mantiene en inventario local
+    }
+  }
+
   return true;
 }
 
@@ -64,9 +89,31 @@ function valorTotalInventario() {
   return total;
 }
 
-function venderPez(indice) {
+async function venderPez(indice) {
   if (indice < 0 || indice >= inventario.length) return;
   const pez = inventario[indice];
+
+  if (pez.id) {
+    try {
+      const res = await fetch("api/vender.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inventario_id: pez.id }),
+      });
+      const data = await res.json();
+      if (data && data.ok) {
+        const ganancia = typeof data.precio === "number" ? data.precio : precioDe(pez);
+        dinero += ganancia;
+        inventario.splice(indice, 1);
+        mostrarMensaje("Vendiste " + pez.nombre + " por $" + ganancia);
+        if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
+        return;
+      }
+    } catch (err) {
+      // Fallback a venta local si no responde el servidor
+    }
+  }
+
   const precio = precioDe(pez);
   dinero += precio;
   inventario.splice(indice, 1);
@@ -74,9 +121,25 @@ function venderPez(indice) {
   if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
 }
 
-function venderTodos() {
+async function venderTodos() {
   const total = valorTotalInventario();
   if (total <= 0) return;
+
+  try {
+    const res = await fetch("api/vender_todos.php", { method: "POST" });
+    const data = await res.json();
+    if (data && data.ok) {
+      const ganancia = typeof data.total === "number" ? data.total : total;
+      dinero += ganancia;
+      inventario.length = 0;
+      mostrarMensaje("Vendiste todo por $" + ganancia);
+      if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
+      return;
+    }
+  } catch (err) {
+    // Fallback a venta local si no responde el servidor
+  }
+
   dinero += total;
   inventario.length = 0;
   mostrarMensaje("Vendiste todo por $" + total);
@@ -311,8 +374,24 @@ function manejarClicVenta(x, y) {
   }
 }
 
+function _rectPanelInventario() {
+  const ancho = min(460, width - 30);
+  const alto = min(540, height - 30);
+  return { x: (width - ancho) / 2, y: (height - alto) / 2, w: ancho, h: alto };
+}
+
+// Botones para elegir la caña que se sostiene
+function _layoutCañasInventario(p) {
+  const w = (p.w - 30) / 2;
+  const y = p.y + 40;
+  return [
+    { tipo: "basica", nombre: "Caña básica", x: p.x + 10, y, w, h: 34 },
+    { tipo: "bambu", nombre: "Caña de Bambú", x: p.x + 20 + w, y, w, h: 34 },
+  ];
+}
+
 function dibujarPanelInventario() {
-  const p = _rectPanel();
+  const p = _rectPanelInventario();
   push();
   fill(10, 18, 28, 235);
   stroke(70, 110, 150);
@@ -323,11 +402,32 @@ function dibujarPanelInventario() {
   fill(180, 220, 255);
   textSize(18);
   textAlign(LEFT, CENTER);
-  text("Inventario", p.x + 14, p.y + 26);
+  text("Inventario", p.x + 14, p.y + 22);
   textAlign(RIGHT, CENTER);
   textSize(14);
   fill(255, 230, 150);
-  text("Valor: $" + valorTotalInventario(), p.x + p.w - 14, p.y + 26);
+  text("Valor: $" + valorTotalInventario(), p.x + p.w - 14, p.y + 22);
+
+  // Selector de caña
+  for (const b of _layoutCañasInventario(p)) {
+    const bloqueada = b.tipo === "bambu" && !tieneCañaBambu;
+    const equipada = cañaEquipada === b.tipo && !bloqueada;
+    push();
+    fill(equipada ? color(25, 75, 55, 240) : color(30, 45, 65, 240));
+    stroke(equipada ? color(70, 180, 120) : color(120, 160, 200));
+    strokeWeight(equipada ? 2.5 : 1.5);
+    rect(b.x, b.y, b.w, b.h, 8);
+    noStroke();
+    fill(bloqueada ? color(130, 140, 150) : color(255));
+    textAlign(CENTER, CENTER);
+    textSize(13);
+    text(
+      b.nombre + (equipada ? "  ✓" : bloqueada ? "  (bloqueada)" : ""),
+      b.x + b.w / 2,
+      b.y + b.h / 2,
+    );
+    pop();
+  }
 
   if (inventario.length === 0) {
     fill(220, 230, 240);
@@ -336,7 +436,7 @@ function dibujarPanelInventario() {
     text("Mochila vacía. Pescalos en el lago.", p.x + p.w / 2, p.y + p.h / 2);
   } else {
     for (let i = 0; i < inventario.length && i < MAX_RANURAS; i++) {
-      const y = p.y + 52 + i * 38;
+      const y = p.y + 88 + i * 38;
       fill(22, 34, 48, 230);
       rect(p.x + 10, y, p.w - 20, 34, 6);
       _dibujarPezFila(inventario[i], p.x + 10, y, p.w - 20, 34);
@@ -346,13 +446,45 @@ function dibujarPanelInventario() {
   fill(160, 200, 240);
   textAlign(CENTER, CENTER);
   textSize(12);
-  text("Clic para cerrar", p.x + p.w / 2, p.y + p.h - 20);
+  text(
+    "Clic en una caña para equiparla  •  Clic fuera o [I] para cerrar",
+    p.x + p.w / 2,
+    p.y + p.h - 20,
+  );
   textAlign(LEFT, BASELINE);
   pop();
 }
 
+function manejarClicInventario(x, y) {
+  const p = _rectPanelInventario();
+  for (const b of _layoutCañasInventario(p)) {
+    if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+      seleccionarCaña(b.tipo);
+      return;
+    }
+  }
+  cerrarMenu();
+}
+
 const PRECIO_CAÑA_TIENDA = 150;
 let tieneCañaBambu = false;
+// Caña que se tiene en la mano: "basica" o "bambu"
+let cañaEquipada = "basica";
+
+// Cambia la caña que se sostiene (solo si se tiene). Se llama desde el inventario.
+function seleccionarCaña(tipo) {
+  if (tipo === "bambu" && !tieneCañaBambu) {
+    mostrarMensaje("Todavía no tenés la Caña de Bambú.");
+    return;
+  }
+  if (cañaEquipada === tipo) return;
+  cañaEquipada = tipo;
+  if (typeof equiparCaña === "function") equiparCaña(tipo);
+  mostrarMensaje(
+    tipo === "bambu" ? "Equipaste la Caña de Bambú." : "Equipaste la Caña básica.",
+  );
+  if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
+}
 
 function abrirMenuComprarCaña() {
   menuTienda = "comprar_caña";
@@ -373,12 +505,12 @@ function comprarCañaTienda() {
   }
   dinero -= PRECIO_CAÑA_TIENDA;
   tieneCañaBambu = true;
+  // Al comprarla reemplaza a la caña que se tenía en la mano
+  cañaEquipada = "bambu";
   mostrarMensaje(
     "¡Compraste la Caña de Bambú por $" + PRECIO_CAÑA_TIENDA + "!",
   );
-  if (typeof equiparCañaBambu === "function") {
-    equiparCañaBambu();
-  }
+  if (typeof equiparCaña === "function") equiparCaña("bambu");
   if (typeof guardarProgresoLocal === "function") guardarProgresoLocal();
   cerrarMenu();
 }

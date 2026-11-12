@@ -52,9 +52,10 @@ class Jugador {
       for (let py of puntosY) {
         const cx = floor(px / TAMAÑO_CELDA);
         const cy = floor(py / TAMAÑO_CELDA);
-        if (esPared(cx, cy) || esAgua(cx, cy) || tiendaColisiona(pos)) return true;
+        if (esPared(cx, cy) || esAgua(cx, cy)) return true;
       }
     }
+    if (tiendaColisiona(pos)) return true;
 
     for (const arbol of colisionesArbolesBorde) {
       if (Math.hypot(pos.x - arbol.x, pos.y - arbol.z) < arbol.radio + m) {
