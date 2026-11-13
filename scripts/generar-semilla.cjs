@@ -12,3 +12,9 @@ fs.writeFileSync('supabase/instalar.sql', migracion.replace(/commit;\s*$/, sql +
 
 const tienda=fs.readFileSync('supabase/migrations/20261111234025_tienda_equipamiento.sql','utf8');
 fs.appendFileSync('supabase/instalar.sql','\n'+tienda);
+
+fs.appendFileSync('supabase/instalar.sql','\n'+fs.readFileSync('supabase/migrations/20261113122304_filtros_cuentas.sql','utf8'));
+
+fs.appendFileSync('supabase/instalar.sql','\n'+fs.readFileSync('supabase/migrations/20261113125249_ranking_jugadores.sql','utf8'));
+
+fs.appendFileSync('supabase/instalar.sql','\n'+fs.readFileSync('supabase/migrations/20261113132727_ranking_politica_privada.sql','utf8'));

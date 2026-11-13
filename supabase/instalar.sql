@@ -317,3 +317,123 @@ $$;
 revoke all on function public.bh_tienda_estado(),public.bh_comprar_producto(text,uuid),public.bh_equipar_producto(text),public.bh_preparar_pesca() from public,anon;
 grant execute on function public.bh_tienda_estado(),public.bh_comprar_producto(text,uuid),public.bh_equipar_producto(text),public.bh_preparar_pesca() to authenticated;
 commit;
+
+-- Filtros para nuevas cuentas y cambios de email/nombre. Conserva cuentas y progreso existentes.
+begin;
+create function bluehaven_privado.normalizar_texto(texto text) returns text language sql immutable set search_path='' as $$
+ select translate(lower(regexp_replace(normalize(coalesce(texto,''),NFKD),U&'[\0300-\036f\200B-\200D\FEFF]','','g')),'013457@$!','oieastasi');
+$$;
+create function bluehaven_privado.texto_ofensivo(texto text) returns boolean language plpgsql immutable set search_path='' as $$
+declare token text; prohibidas text[]:=array['puto','puta','putos','putas','mierda','mierdas','carajo','carajos','cabron','cabrona','cabrones','boludo','boluda','boludos','boludas','pelotudo','pelotuda','pelotudos','pelotudas','pendejo','pendeja','pendejos','pendejas','gilipollas','maricon','maricones','hdp','hijodeputa','hijadeputa','conchadetumadre','forro','forra','forros','forras','imbecil','imbeciles','idiota','idiotas','estupido','estupida','estupidos','estupidas','fuck','fucker','fucking','shit','bitch','asshole'];
+begin
+ for token in select regexp_split_to_table(coalesce(texto,''),'[^[:alnum:]@$!]+') loop
+  if bluehaven_privado.normalizar_texto(token)=any(prohibidas) or bluehaven_privado.normalizar_texto(regexp_replace(token,'^[0-9]+|[0-9]+$','','g'))=any(prohibidas) then return true;end if;
+ end loop;
+ return regexp_replace(bluehaven_privado.normalizar_texto(texto),'[^a-z]','','g')=any(prohibidas);
+end;
+$$;
+create function bluehaven_privado.validar_email(texto text) returns void language plpgsql immutable set search_path='' as $f$
+declare email text:=lower(trim(coalesce(texto,''))); dominio text:=split_part(email,'@',2); nombre text:=split_part(email,'@',1);
+begin
+ if length(email)>254 or length(nombre)>64 or email!~$re$^[a-z0-9!#$%&'*+\-/=?^_`{|}~]+(?:\.[a-z0-9!#$%&'*+\-/=?^_`{|}~]+)*@[a-z0-9.-]+$$re$ then raise exception 'Ingresá un email válido.' using errcode='23514';end if;
+ if not (dominio=any(array['gmail.com','googlemail.com','hotmail.com','hotmail.es','hotmail.com.ar','outlook.com','outlook.es','outlook.com.ar','live.com','live.com.ar','live.com.mx','msn.com','yahoo.com','yahoo.es','yahoo.com.ar','yahoo.com.mx','ymail.com','rocketmail.com','icloud.com','me.com','mac.com','proton.me','protonmail.com','pm.me','aol.com','gmx.com','gmx.net','mail.com','zoho.com'])) then raise exception 'Proveedor de correo no permitido.' using errcode='23514';end if;
+ if bluehaven_privado.texto_ofensivo(nombre) then raise exception 'El correo contiene palabras no permitidas.' using errcode='23514';end if;
+end;
+$f$;
+create function bluehaven_privado.validar_nombre(texto text) returns void language plpgsql immutable set search_path='' as $$
+begin
+ if texto is null or length(trim(texto)) not between 1 and 50 then raise exception 'El nombre debe tener entre 1 y 50 caracteres.' using errcode='23514';end if;
+ if bluehaven_privado.texto_ofensivo(texto) then raise exception 'Elegí un nombre sin palabras ofensivas.' using errcode='23514';end if;
+end;
+$$;
+create function bluehaven_privado.validar_cuenta_auth() returns trigger language plpgsql set search_path='' as $$
+begin
+ if TG_OP='INSERT' then
+  perform bluehaven_privado.validar_email(new.email);
+  perform bluehaven_privado.validar_nombre(coalesce(nullif(trim(new.raw_user_meta_data->>'usuario'),''),'Pescador'));
+ else
+  if coalesce(new.email_change,'')<>'' and new.email_change is distinct from old.email_change then perform bluehaven_privado.validar_email(new.email_change);end if;
+  if new.email is distinct from old.email then perform bluehaven_privado.validar_email(new.email);end if;
+  if new.raw_user_meta_data->>'usuario' is distinct from old.raw_user_meta_data->>'usuario' then perform bluehaven_privado.validar_nombre(coalesce(nullif(trim(new.raw_user_meta_data->>'usuario'),''),'Pescador'));end if;
+ end if;
+ return new;
+end;
+$$;
+create trigger bluehaven_validar_cuenta before insert or update of email,email_change,raw_user_meta_data on auth.users for each row execute function bluehaven_privado.validar_cuenta_auth();
+create function bluehaven_privado.validar_nombre_perfil() returns trigger language plpgsql set search_path='' as $$
+begin
+ if TG_OP='INSERT' then perform bluehaven_privado.validar_nombre(new.usuario);
+ elsif new.usuario is distinct from old.usuario then perform bluehaven_privado.validar_nombre(new.usuario);end if;
+ return new;
+end;
+$$;
+create trigger bluehaven_validar_nombre before insert or update of usuario on public.perfiles for each row execute function bluehaven_privado.validar_nombre_perfil();
+revoke all on function bluehaven_privado.normalizar_texto(text),bluehaven_privado.texto_ofensivo(text),bluehaven_privado.validar_email(text),bluehaven_privado.validar_nombre(text),bluehaven_privado.validar_cuenta_auth(),bluehaven_privado.validar_nombre_perfil() from public,anon,authenticated;
+grant usage on schema bluehaven_privado to supabase_auth_admin;
+grant execute on function bluehaven_privado.normalizar_texto(text),bluehaven_privado.texto_ofensivo(text),bluehaven_privado.validar_email(text),bluehaven_privado.validar_nombre(text),bluehaven_privado.validar_cuenta_auth() to supabase_auth_admin;
+commit;
+
+-- Proyección pública mínima del ranking; los perfiles e inventarios siguen privados.
+begin;
+lock table public.perfiles,public.capturas_usuario in share row exclusive mode;
+create table bluehaven_privado.ranking_pesca (
+ usuario_id uuid primary key references public.perfiles(usuario_id) on delete cascade,
+ usuario text not null,
+ dinero bigint not null default 0 check(dinero>=0),
+ capturas bigint not null default 0 check(capturas>=0)
+);
+alter table bluehaven_privado.ranking_pesca enable row level security;
+revoke all on bluehaven_privado.ranking_pesca from public,anon,authenticated;
+create index ranking_dinero_idx on bluehaven_privado.ranking_pesca(dinero desc,capturas desc,usuario_id);
+create index ranking_capturas_idx on bluehaven_privado.ranking_pesca(capturas desc,dinero desc,usuario_id);
+insert into bluehaven_privado.ranking_pesca(usuario_id,usuario,dinero,capturas)
+ select p.usuario_id,p.usuario,p.dinero,coalesce(c.total,0) from public.perfiles p
+ left join (select usuario_id,sum(cantidad_capturada)::bigint total from public.capturas_usuario group by usuario_id)c using(usuario_id);
+create function bluehaven_privado.actualizar_ranking_perfil() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+ insert into bluehaven_privado.ranking_pesca(usuario_id,usuario,dinero) values(new.usuario_id,new.usuario,new.dinero)
+ on conflict(usuario_id) do update set usuario=excluded.usuario,dinero=excluded.dinero;
+ return new;
+end;
+$$;
+create trigger bluehaven_ranking_perfil after insert or update of dinero,usuario on public.perfiles for each row execute function bluehaven_privado.actualizar_ranking_perfil();
+create function bluehaven_privado.actualizar_ranking_captura() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare uid uuid;
+begin
+ if TG_OP='DELETE' then uid=old.usuario_id;else uid=new.usuario_id;end if;
+ update bluehaven_privado.ranking_pesca set capturas=coalesce((select sum(cantidad_capturada) from public.capturas_usuario where usuario_id=uid),0) where usuario_id=uid;
+ if TG_OP='DELETE' then return old;end if;
+ return new;
+end;
+$$;
+create trigger bluehaven_ranking_captura after insert or update or delete on public.capturas_usuario for each row execute function bluehaven_privado.actualizar_ranking_captura();
+revoke all on function bluehaven_privado.actualizar_ranking_perfil(),bluehaven_privado.actualizar_ranking_captura() from public,anon,authenticated;
+create function bluehaven_privado.leer_ranking(p_criterio text default 'dinero') returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+declare orden text;respuesta jsonb;
+begin
+ if p_criterio='dinero' then orden='dinero desc,capturas desc,usuario_id';
+ elsif p_criterio='capturas' then orden='capturas desc,dinero desc,usuario_id';
+ else raise exception 'Clasificación inválida.' using errcode='22023';end if;
+ -- orden proviene exclusivamente de las dos constantes anteriores, nunca del cliente.
+ execute 'with puestos as (select usuario_id,usuario,dinero,capturas,row_number() over(order by '||orden||') puesto from bluehaven_privado.ranking_pesca), filas as (select puesto,case when bluehaven_privado.texto_ofensivo(usuario) then ''Pescador'' else usuario end nombre,dinero,capturas,coalesce(usuario_id=auth.uid(),false) es_tuyo from puestos) select jsonb_build_object(''jugadores'',coalesce((select jsonb_agg(to_jsonb(t) order by puesto) from (select * from filas order by puesto limit 20)t),''[]''::jsonb),''tu_puesto'',(select to_jsonb(f) from filas f where es_tuyo),''total_jugadores'',(select count(*) from puestos))' into respuesta;
+ return respuesta;
+end;
+$$;
+revoke all on function bluehaven_privado.leer_ranking(text) from public;
+grant usage on schema bluehaven_privado to anon,authenticated;
+grant execute on function bluehaven_privado.leer_ranking(text) to anon,authenticated;
+create function public.bh_ranking(p_criterio text default 'dinero') returns jsonb
+language sql stable security invoker set search_path='' as $$ select bluehaven_privado.leer_ranking(p_criterio); $$;
+revoke all on function public.bh_ranking(text) from public;
+grant execute on function public.bh_ranking(text) to anon,authenticated;
+commit;
+
+-- Denegación explícita como defensa ante futuros grants accidentales.
+-- Solo las funciones internas del propietario leen o escriben esta proyección.
+begin;
+create policy ranking_solo_funciones_internas on bluehaven_privado.ranking_pesca
+ for all to anon,authenticated using(false) with check(false);
+commit;

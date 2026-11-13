@@ -60,3 +60,23 @@ Prueba dedicada: 40 posiciones con piso y paredes equivalentes entre BVH y rayca
 ## Diseño forestal de backend
 
 Prueba Chromium: 90 árboles interiores y tres capas de mallas instanciadas; borde sólido, colisión de troncos y lago, aparición despejada y al menos un punto transitable del puente sobre agua. Entrada/salida de la tienda y ausencia de errores JavaScript. La vista medida registró 56 llamadas de dibujo con el bosque cargado (523.104 triángulos); esto no garantiza FPS en otros equipos. Revisión visual del lago y de la tienda. Continuaron aprobados los ocho casos de lógica y el navegador general con los cinco minijuegos, controles, economía y guardado.
+
+## Filtros de email y lenguaje
+
+Doce pruebas de lógica aprobadas: dominios exactos, formato, normalización de ofensas y evasiones comunes, nombres legítimos, llamadas bloqueadas antes del SDK, contraseñas intactas y listas JS/SQL iguales. API real local: rechazo directo de dominios ajenos y suplantados, nombre y correo ofensivos, metadata ofensiva; registro de Maricarmen y operaciones anteriores aprobadas. Navegador: formularios inválidos sin solicitudes de Auth, registro válido, login, recuperación de sesión, economía, captura y persistencia.
+
+Migración aplicada y verificada en Supabase alojado con funciones puras, sin crear usuarios de prueba ni enviar emails. El asesor de seguridad no añadió avisos respecto del estado anterior; permanecen los nueve avisos de [RPC privilegiadas intencionales](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) y el de [protección de contraseñas filtradas](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+## Audio, clasificación y controles táctiles
+
+API real local: ranking por ambos criterios, saldo tras ventas y compras, capturas acumuladas incluyendo ejemplares vendidos/liberados, repetición idempotente sin duplicar, puesto propio, consulta anónima, claves públicas limitadas y rechazo de escritura directa/criterio inválido. Navegador con cuenta: el ranking muestra $649 y dos capturas aunque solo quede una en la mochila.
+
+Chromium con pantalla táctil emulada y eventos multitáctiles nativos: dos dedos para movimiento y mirada, lanzamiento y cancelación, pulso de anillo, freno mantenido/soltado, dos pistas de ritmo sostenidas, esquiva y reacción multietapa. Menús, enciclopedia bloqueada, tienda, ranking, rotación 390×844/844×390, dimensiones de dibujo restauradas, contexto de audio activo, silencio sobre la salida real y limpieza al salir. Se corrigió el clic de compatibilidad que podía caer en Cancelar al cambiar de posición un botón. Revisión de capturas de pantalla vertical/horizontal y ranking. No se hizo una prueba sobre un teléfono físico ni una escucha manual; los sonidos se verificaron mediante el contexto y la mezcla del navegador.
+
+En Supabase alojado se comprobó el backfill sin diferencias entre saldo/capturas del ranking y las fuentes, y que no hay permisos de lectura directa de la proyección ni ejecución de la función privada de equipo ajeno. La respuesta contiene solo nombre, puesto, dinero, capturas y marca de usuario propio.
+
+La política privada de denegación explícita eliminó el aviso nuevo de RLS sin políticas; el asesor de seguridad vuelve al mismo conjunto de avisos anteriores ([referencia de RLS](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)). Se verificó también la RPC alojada con la clave pública, sin sesión, en ambos órdenes y con solo los cinco campos previstos.
+
+## Analógico y barras discretas
+
+Doce pruebas de lógica y la suite móvil de Chromium aprobadas. Se verificaron movimiento y mirada con dos dedos, velocidad parcial, límite circular de intensidad, cancelación y reutilización del analógico después de toques fuera del control; no se captura el cursor ni se abre Ajustes. Los cinco minijuegos, notas sostenidas simultáneas, menús y rotación siguen aprobados. En registro a 390×480 el contenido largo conserva desplazamiento con barras ocultas. Validación con pantalla táctil emulada; pendiente comprobación en un teléfono físico.

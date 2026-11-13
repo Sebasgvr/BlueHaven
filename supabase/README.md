@@ -61,3 +61,13 @@ Esto genera `config.js`, un archivo público. No ingreses allí una contraseña 
 ## Datos de la versión MySQL anterior
 
 Los SQL anteriores están conservados en `docs/legacy/mysql/`. No se importan en PostgreSQL: tenían otro esquema y autenticación propia. Esta instalación crea la base del juego en Supabase; no transfiere automáticamente cuentas ni partidas existentes de MariaDB. Conservá un respaldo de esa base si necesitás migrar datos reales después.
+
+## Filtros de cuentas
+
+La migración `20261113122304_filtros_cuentas.sql` ya está aplicada al proyecto alojado. Para una instalación nueva, está incluida en `instalar.sql`. No elimina usuarios ni cambia sus contraseñas o partidas. Valida nuevas cuentas, emails y cambios de nombre con funciones privadas y triggers; no requiere activar hooks manualmente. La validación de acceso y restauración de sesión está también en el cliente. Los tokens existentes no se revocan mediante esta migración.
+
+Los registros rechazados directamente por la API pueden devolver un error genérico de Auth por el rechazo del trigger. Los formularios y el adaptador presentan la explicación específica antes de enviar la solicitud. Los ensayos automáticos con emails gmail se ejecutan solo contra Supabase local, con confirmación automática y sin envío de correos a terceros.
+
+## Ranking
+
+Las migraciones `20261113125249_ranking_jugadores.sql` y `20261113132727_ranking_politica_privada.sql` ya están aplicadas al proyecto alojado y se incluyen en `instalar.sql`. Conservan y cargan los saldos y contadores anteriores. La proyección privada tiene índices por ambos órdenes, RLS, denegación explícita de acceso directo y triggers transaccionales. La función pública invocadora `bh_ranking` devuelve únicamente el top 20, el puesto propio y el total; delega la lectura limitada a una función privilegiada privada. No expone datos de Auth ni inventarios y no acepta puntuaciones del cliente. Es una clasificación del prototipo de un jugador; los resultados del minijuego siguen siendo calculados por el cliente, como antes.

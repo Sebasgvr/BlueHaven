@@ -18,5 +18,17 @@ shop_installed=$(docker compose -p "$project_name" -f "$compose_file" exec -T db
 if [ "$shop_installed" != t ]; then
   docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -v ON_ERROR_STOP=1 < supabase/migrations/20261111234025_tienda_equipamiento.sql
 fi
+filters_installed=$(docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -tAc "select to_regprocedure('bluehaven_privado.validar_cuenta_auth()') is not null")
+if [ "$filters_installed" != t ]; then
+  docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -v ON_ERROR_STOP=1 < supabase/migrations/20261113122304_filtros_cuentas.sql
+fi
+ranking_installed=$(docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -tAc "select to_regclass('bluehaven_privado.ranking_pesca') is not null")
+if [ "$ranking_installed" != t ]; then
+  docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -v ON_ERROR_STOP=1 < supabase/migrations/20261113125249_ranking_jugadores.sql
+fi
+ranking_policy_installed=$(docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -tAc "select exists(select 1 from pg_policies where schemaname='bluehaven_privado' and policyname='ranking_solo_funciones_internas')")
+if [ "$ranking_policy_installed" != t ]; then
+  docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -v ON_ERROR_STOP=1 < supabase/migrations/20261113132727_ranking_politica_privada.sql
+fi
 docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -c "NOTIFY pgrst, 'reload schema'"
 SUPABASE_TEST_URL=http://127.0.0.1:54321 SUPABASE_TEST_ANON_KEY="$(node tests/supabase/token.cjs)" npm run test:api

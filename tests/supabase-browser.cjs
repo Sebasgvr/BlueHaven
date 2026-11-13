@@ -12,7 +12,14 @@ if (!url || !key || !['localhost','127.0.0.1'].includes(new URL(url).hostname)) 
     await page.route('**/config.js',r=>r.fulfill({contentType:'application/javascript',body:'window.BLUEHAVEN_CONFIG='+JSON.stringify({supabaseUrl:url,supabaseKey:key})}));
     await page.goto(process.env.TEST_URL || 'http://127.0.0.1:8080');
     await page.waitForFunction(()=>window.juegoPreparado);
-    const email='browser_'+Date.now()+'@example.com';
+    let intentosAuth=0;page.on('request',r=>{if(r.method()==='POST'&&/\/auth\/v1\/(signup|token)/.test(r.url()))intentosAuth++});
+    await page.fill('#login-usuario','pescador@example.com');await page.fill('#login-password','test-pass-123');await page.locator('#form-login button[type=submit]').click();
+    assert.match(await page.locator('#login-usuario').evaluate(e=>e.validationMessage),/proveedor/);
+    await page.click('#tab-registro');await page.fill('#reg-email','pescador@gmail.com');await page.fill('#reg-password','test-pass-123');
+    for(const nombre of ['boludo123','P3LOTUD0','p.u.t.o']) {await page.fill('#reg-usuario',nombre);await page.locator('#form-registro button[type=submit]').click();assert.match(await page.locator('#reg-usuario').evaluate(e=>e.validationMessage),/ofensivas/);}
+    await page.fill('#reg-usuario','Maricarmen');await page.fill('#reg-email','pescador@gmail.com.evil.test');await page.locator('#form-registro button[type=submit]').click();assert.match(await page.locator('#reg-email').evaluate(e=>e.validationMessage),/proveedor/);
+    assert.equal(intentosAuth,0,'Los valores rechazados no deben enviarse a Supabase');
+    const email='browser_' +Date.now()+'@gmail.com';
     await page.click('#tab-registro');
     await page.fill('#reg-usuario','Pescador de prueba'); await page.fill('#reg-email',email); await page.fill('#reg-password','test-pass-123');
     await page.locator('#form-registro button[type=submit]').click();
@@ -45,6 +52,12 @@ if (!url || !key || !['localhost','127.0.0.1'].includes(new URL(url).hostname)) 
     assert.match(await page.locator('#captura-guardado').innerText(),/guardada/);
     await page.click('#captura-continuar');await page.reload();await page.waitForFunction(()=>document.body.classList.contains('jugando'));
     assert.equal(await page.evaluate(()=>inventario.length),1);assert.equal(await page.evaluate(()=>CATALOGO_ESPECIES.every(p=>!!spritesPeces[p.sprite])),true);
+    if(await page.evaluate(()=>!!document.pointerLockElement))await page.keyboard.press('p');
+    await page.evaluate(()=>{BIENVENIDA.activa=false;BIENVENIDA._saliendo=false});
+    await page.click('#boton-ranking');await page.waitForFunction(()=>document.getElementById('ranking-propio').textContent.includes('$649'));
+    assert.match(await page.locator('#ranking-propio').innerText(),/2 capturas/);
+    await page.locator('[data-ranking="capturas"]').click();await page.waitForFunction(()=>!document.getElementById('ranking-actualizar').disabled);await page.click('#ranking-cerrar');
+    assert.deepEqual(errors,[]);
     console.log('Navegador Supabase: registro, economía, restauración de sesión, logout, invitado y login OK');
   } finally { await browser.close(); }
 })().catch(e=>{console.error(e);process.exitCode=1});
