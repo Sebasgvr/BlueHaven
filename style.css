@@ -5,10 +5,15 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  font-family: 'Press Start 2P', cursive;
 }
 
 canvas {
   display: block;
+}
+
+* {
+  font-family: 'Press Start 2P', cursive;
 }
 
 /* ---------- Pantalla de login/registro ---------- */
@@ -398,3 +403,94 @@ body:not(.jugando) #panel-chat,
 .chat-form button:hover {
   background: #ffc856;
 }
+
+.logo-juego { width: 88px; height: 64px; object-fit: contain; image-rendering: pixelated; }
+.boton-secundario { border: 1px solid #488b9c; border-radius: 8px; padding: 12px; color: #e5f7ff; background: #183d4d; cursor: pointer; }
+#barra-juego { position: fixed; left: 14px; top: 12px; z-index: 20; color: #e1f6f2; font: 12px 'Space Grotesk', sans-serif; }
+#barra-juego[hidden] { display: none; }
+#boton-ajustes, #ajustes button { background: #173b49; color: #e1f6f2; border: 1px solid #5f9c9a; padding: 10px 16px; border-radius: 8px; cursor: pointer; }
+#estado-guardado { display: block; max-width: 290px; margin-top: 8px; text-shadow: 0 1px 3px #000; }
+#ajustes { max-width: min(460px, 90vw); border: 1px solid #5f9c9a; border-radius: 16px; padding: 28px; background: #102d38; color: #e1f6f2; font-family: 'Space Grotesk', sans-serif; }
+#ajustes::backdrop { background: #00151dbb; }
+#ajustes label { display: block; margin: 20px 0; }
+#ajustes select { padding: 8px; margin-left: 12px; }
+#rendimiento-hud { position: fixed; bottom: 8px; left: 12px; z-index: 25; color: #fff; font: 12px monospace; pointer-events: none; text-shadow: 0 1px 3px #000; }
+
+#boton-logout { left: 120px; top: 12px; z-index: 20; height: 38px; }
+
+#comercio { width:min(760px,calc(100vw - 36px)); max-height:calc(100dvh - 36px); padding:0; border:1px solid #78b2ae; border-radius:18px; background:#102c38; color:#eaf7f4; font:15px system-ui,sans-serif; box-shadow:0 24px 90px #00151dcc; }
+#comercio::backdrop { background:#00131dbb; backdrop-filter:blur(3px); }
+.comercio-cabecera { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:24px; border-bottom:1px solid #31515d; }
+.comercio-cabecera small { letter-spacing:.15em; color:#92c9c2; font-size:10px; }
+.comercio-cabecera h2 { margin:8px 0 0; font-size:25px; }
+.comercio-saldo { color:#f7cf73; font-size:25px; font-weight:bold; white-space:nowrap; }
+#comercio-navegacion { display:flex; gap:8px; padding:16px 24px 0; }
+#comercio button { font:inherit; color:#eaf7f4; cursor:pointer; border:1px solid #5d8b96; border-radius:9px; padding:10px 15px; background:#244653; }
+#comercio button:hover:not(:disabled),#comercio button[aria-current=true],#comercio button[aria-pressed=true] { background:#37695f; border-color:#9fd0b0; }
+#comercio button:disabled { opacity:.45; cursor:default; }
+#comercio-contenido { padding:20px 24px; min-height:190px; max-height:45dvh; overflow:auto; }
+#comercio p { line-height:1.55; color:#bbd4d7; }
+.comercio-bienvenida { font-size:18px; }
+.comercio-opciones { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:24px 0; }
+#comercio .comercio-accion { padding:26px 16px; font-size:20px; background:#265b56; }
+.comercio-categorias { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.comercio-producto { display:flex; gap:18px; align-items:center; justify-content:space-between; padding:17px 0; border-bottom:1px solid #31515d; }
+.comercio-producto h3 { margin:0 0 5px; font-size:17px; }
+.comercio-producto p { margin:0 0 6px; font-size:13px; }
+.comercio-producto small { color:#a5d8b3; }
+.comercio-producto-acciones { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; min-width:160px; }
+#comercio-mensaje { min-height:22px; margin:0; padding:0 24px 12px; color:#b6e7b5; }
+#comercio-mensaje.error { color:#ffb1a2; }
+#comercio footer { display:flex; justify-content:space-between; gap:12px; padding:16px 24px; border-top:1px solid #31515d; }
+.comercio-vender-todo { margin-top:16px; }
+@media(max-width:540px) { .comercio-cabecera { padding:18px; } .comercio-cabecera h2 { font-size:20px; } .comercio-producto { align-items:flex-start; flex-direction:column; } .comercio-producto-acciones { justify-content:flex-start; } .comercio-opciones { grid-template-columns:1fr; } #comercio footer { flex-wrap:wrap; } }
+
+#ajustes #boton-logout { position: static; margin-top: 16px; height: auto; background: #633938; }
+#volumen-general { width: 100%; accent-color: #87cfc5; }
+#valor-volumen { float: right; }
+
+#tarjeta-captura { --brillo-captura: 255,190,60; box-sizing:border-box; width:min(820px,94vw); max-height:90vh; overflow:auto; padding:0; border:2px solid rgba(var(--brillo-captura),.9); border-radius:22px; color:#e6f5f0; background:#102b37; font-family:'Space Grotesk',sans-serif; box-shadow:0 0 35px rgba(var(--brillo-captura),.35); }
+#tarjeta-captura::backdrop { background:#001018c9; }
+.captura-ficha { padding:28px; }
+.captura-ficha header { text-align:center; }
+.captura-ficha header span { color:rgb(var(--brillo-captura)); font-size:12px; letter-spacing:3px; }
+.captura-ficha h2 { margin:12px 0 5px; font-size:30px; }
+#captura-cientifico { margin:0 0 24px; color:#a6c8cc; font-style:italic; }
+.captura-cuerpo { display:grid; grid-template-columns:210px 1fr; gap:26px; }
+.captura-retrato { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; isolation:isolate; }
+.captura-retrato::before { content:''; position:absolute; inset:10% -10%; z-index:-1; background:radial-gradient(ellipse,rgba(var(--brillo-captura),.35),transparent 68%); animation:brillo-pez 2.5s ease-in-out infinite alternate; }
+#captura-sprite { width:190px; height:170px; object-fit:contain; image-rendering:pixelated; }
+#captura-calidad { color:rgb(var(--brillo-captura)); font-size:19px; }
+#captura-valor { color:#ffe29b; }
+#captura-descripcion { margin-top:0; line-height:1.6; }
+#captura-datos { display:grid; grid-template-columns:130px 1fr; gap:10px 14px; font-size:13px; line-height:1.5; }
+#captura-datos dt { color:#94bebd; } #captura-datos dd { margin:0; }
+#captura-curiosidad { border-left:3px solid rgb(var(--brillo-captura)); padding:12px; background:#173e49; font-size:13px; line-height:1.6; }
+.captura-ficha footer { margin-top:24px; text-align:center; border-top:1px solid #33535e; padding-top:10px; }
+#captura-guardado { font-size:13px; color:#aed5c6; }
+#captura-continuar { border:1px solid rgb(var(--brillo-captura)); border-radius:9px; background:#214956; color:#effcf6; padding:12px 24px; cursor:pointer; font:inherit; }
+#captura-continuar:disabled { opacity:.5; cursor:wait; }
+@keyframes brillo-pez { from {opacity:.5;transform:scale(.9)} to {opacity:1;transform:scale(1.08)} }
+@media(max-width:600px) { .captura-cuerpo { grid-template-columns:1fr;gap:16px; } .captura-ficha{padding:20px} .captura-retrato{gap:8px} #captura-sprite{height:110px} #captura-datos{grid-template-columns:110px 1fr} }
+@media(prefers-reduced-motion:reduce) { .captura-retrato::before{animation:none} }
+
+.comercio-pez { float:left; width:64px; height:54px; object-fit:contain; image-rendering:pixelated; margin-right:16px; }
+
+/* Ficha compacta: adapta el contenido completo al espacio de la ventana. */
+#tarjeta-captura { width:min(760px,calc(100vw - 24px)); max-width:calc(100vw - 24px); max-height:none; overflow:visible; border-radius:16px; }
+.captura-ficha { padding:18px 22px; }
+.captura-ficha header span { font-size:10px; letter-spacing:2px; }
+.captura-ficha h2 { margin:6px 0 3px; font-size:25px; }
+#captura-cientifico { margin:0 0 14px; font-size:12px; }
+.captura-cuerpo { grid-template-columns:155px minmax(0,1fr); gap:18px; }
+.captura-retrato { gap:10px; }
+#captura-sprite { width:145px; height:125px; }
+#captura-calidad { font-size:16px; }
+#captura-valor { font-size:13px; }
+#captura-descripcion { font-size:13px; line-height:1.4; margin-bottom:10px; }
+#captura-datos { grid-template-columns:115px minmax(0,1fr); gap:6px 10px; font-size:12px; line-height:1.35; margin:10px 0; }
+#captura-curiosidad { padding:8px 10px; font-size:12px; line-height:1.4; }
+.captura-ficha footer { margin-top:14px; padding-top:8px; }
+#captura-guardado { margin:5px 0 10px; font-size:12px; }
+#captura-continuar { padding:9px 18px; font-size:13px; }
+@media(max-width:600px) { .captura-ficha { padding:14px; } .captura-cuerpo { grid-template-columns:1fr; gap:10px; } .captura-retrato { flex-direction:row; flex-wrap:wrap; gap:8px 14px; } #captura-sprite { width:95px; height:70px; } #captura-cientifico { margin-bottom:8px; } }

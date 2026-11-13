@@ -1,129 +1,205 @@
+// BVH: descarta grupos de triángulos antes de consultar colisiones precisas.
+THREE.BufferGeometry.prototype.computeBoundsTree=MeshBVHLib.computeBoundsTree;
+THREE.BufferGeometry.prototype.disposeBoundsTree=MeshBVHLib.disposeBoundsTree;
+THREE.Mesh.prototype.raycast=MeshBVHLib.acceleratedRaycast;
+function acelerarMallas(modelo) {
+  modelo.traverse(m=>{if(m.isMesh && !m.isSkinnedMesh && !m.geometry.boundsTree)m.geometry.computeBoundsTree();});
+}
 const TIENDA = {
   posicion: null,
-  escena: null,
-  camara: null,
-  renderizador: null,
-  modelo: null,
   objetoMundo: null,
-  canvas: null,
-  cargada: false,
-  anchoColision: TAMAÑO_CELDA * 1.25,
-  profundidadColision: TAMAÑO_CELDA * 1.1,
-  altoPantalla: 210,
+  anchoColision: 0,
+  profundidadColision: 0,
+  // Mallas 3D usadas para colisiones (se llenan al cargar el modelo)
+  mallasParedes: [],
+  mallasPiso: [],
+  cajaColision: null,
+  cajaPiso: null,
 };
 
+// ===== POSICIÓN DE LA TIENDA EN EL MAPA (en celdas) =====
+// TIENDA_COLUMNA: izquierda/derecha (menor = más a la izquierda)
+// TIENDA_FILA: arriba/abajo en el mapa (menor = más ARRIBA, mayor = más abajo)
+const TIENDA_COLUMNA = 28.5;
+const TIENDA_FILA = 19;
+
+// ===== ESCALA DE LA TIENDA =====
+// Cambiá SOLO este número para agrandar/achicar la tienda. Todo lo demás
+// (Kiwifina, caña de la tienda, colisiones, piso, zona de interacción) se
+// escala y se mueve automáticamente con ella, usando TIENDA.posicion como centro.
+const TIENDA_ESCALA = 27.0;
+// Escala con la que se calibraron originalmente las posiciones de los objetos
+const TIENDA_ESCALA_BASE = 19.0;
+// Factor de escala de la tienda respecto a la base (1 = tamaño original)
+const TIENDA_FACTOR = TIENDA_ESCALA / TIENDA_ESCALA_BASE;
+// Subir/bajar la tienda (y todo lo que tiene adentro: piso, Kiwifina, caña, colisiones).
+// Positivo = sube, negativo = baja. Se suma a la altura calculada automáticamente.
+const TIENDA_AJUSTE_ALTURA = 15;
+
+// Altura máxima de escalón que el jugador puede subir al pisar el piso de la tienda
+// (incluye el ajuste de altura para poder subir aunque la tienda esté levantada)
+const TIENDA_ESCALON_MAXIMO =
+  TAMAÑO_CELDA * 0.35 * TIENDA_FACTOR + Math.abs(TIENDA_AJUSTE_ALTURA);
+// Alturas (relativas al piso) desde donde se lanzan rayos horizontales contra las paredes
+const TIENDA_ALTURAS_RAYOS = [6, 20, 34];
+
+const _tiendaRaycaster = new THREE.Raycaster();
+_tiendaRaycaster.firstHitOnly=true;
+const _tiendaOrigen = new THREE.Vector3();
+const _tiendaDireccion = new THREE.Vector3();
+const _tiendaDireccionesRayos = (() => {
+  const dirs = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    dirs.push(new THREE.Vector3(Math.cos(a), 0, Math.sin(a)));
+  }
+  return dirs;
+})();
+
 function tiendaInicializar() {
-  // Mueve la tienda cambiando estas coordenadas de columna y fila.
-  TIENDA.posicion = createVector(TAMAÑO_CELDA * 9, TAMAÑO_CELDA * 10);
-  TIENDA.canvas = document.createElement("canvas");
-  TIENDA.canvas.width = 320;
-  TIENDA.canvas.height = 240;
-
-  TIENDA.escena = new THREE.Scene();
-  TIENDA.camara = new THREE.PerspectiveCamera(30, 320 / 240, 0.01, 100);
-  TIENDA.camara.position.set(0, 1.4, 5.2);
-  TIENDA.camara.lookAt(0, 0.85, 0);
-
-  TIENDA.renderizador = new THREE.WebGLRenderer({
-    canvas: TIENDA.canvas,
-    alpha: true,
-    antialias: true,
-  });
-  TIENDA.renderizador.setPixelRatio(1);
-  TIENDA.renderizador.setSize(320, 240, false);
-  TIENDA.renderizador.setClearColor(0x000000, 0);
-
-  TIENDA.escena.add(new THREE.HemisphereLight(0xfff1d6, 0x38484e, 2.4));
-  const luz = new THREE.DirectionalLight(0xffe0ad, 3);
-  luz.position.set(-3, 5, 4);
-  TIENDA.escena.add(luz);
-
-  const cargador = new THREE.OBJLoader();
-  cargador.load(
-    "models/tienda/source/Tienda_02.obj",
-    (modelo) => {
-      const textura = new THREE.TextureLoader().load(
-        "models/tienda/textures/Tienda_02_initialShadingGroup_BaseColor.10.png",
-      );
-      textura.colorSpace = THREE.SRGBColorSpace;
-
-      modelo.traverse((objeto) => {
-        if (!objeto.isMesh) return;
-        objeto.material = new THREE.MeshStandardMaterial({
-          map: textura,
-          roughness: 0.82,
-          metalness: 0,
-          side: THREE.DoubleSide,
-        });
-      });
-
-      const caja = new THREE.Box3().setFromObject(modelo);
-      const centro = caja.getCenter(new THREE.Vector3());
-      const tamaño = caja.getSize(new THREE.Vector3());
-      const escala = 2.9 / Math.max(tamaño.x, tamaño.y, tamaño.z);
-
-      modelo.position.sub(centro);
-      modelo.scale.setScalar(escala);
-      modelo.position.y = -0.55;
-      TIENDA.escena.add(modelo);
-      TIENDA.modelo = modelo;
-      TIENDA.cargada = true;
-    },
-    undefined,
-    (error) => console.error("No se pudo cargar la tienda:", error),
+  // Coordenadas de columna y fila de la tienda
+  TIENDA.posicion = createVector(
+    TAMAÑO_CELDA * TIENDA_COLUMNA,
+    TAMAÑO_CELDA * TIENDA_FILA,
   );
+}
+
+// Registra las mallas del modelo que bloquean (paredes/objetos) y el piso.
+function tiendaRegistrarColisiones(modelo) {
+  modelo.updateMatrixWorld(true);
+  acelerarMallas(modelo);
+  TIENDA.mallasParedes = [];
+  TIENDA.mallasPiso = [];
+
+  modelo.traverse((objeto) => {
+    if (!objeto.isMesh) return;
+    const nombre = (objeto.name || "").toLowerCase();
+    if (nombre.includes("water") || nombre.includes("roof")) return;
+    if (nombre.includes("floor")) {
+      TIENDA.mallasPiso.push(objeto);
+    } else if (nombre.includes("house") || nombre.includes("box")) {
+      TIENDA.mallasParedes.push(objeto);
+    }
+  });
+
+  TIENDA.cajaColision = new THREE.Box3();
+  TIENDA.mallasParedes.forEach((m) => TIENDA.cajaColision.expandByObject(m));
+  TIENDA.cajaPiso = new THREE.Box3();
+  TIENDA.mallasPiso.forEach((m) => TIENDA.cajaPiso.expandByObject(m));
+
+  console.log(
+    "Colisiones tienda:",
+    TIENDA.mallasParedes.length,
+    "paredes,",
+    TIENDA.mallasPiso.length,
+    "pisos",
+  );
+}
+
+// Tamaño máximo (en unidades del mundo) de las rendijas entre tablas que se ignoran.
+// Si el jugador pisa una rendija, se usa el piso más cercano dentro de este radio,
+// así no "cae" entre las maderas. Subilo si todavía hay huecos que lo hacen bajar.
+const TIENDA_TOLERANCIA_HUECOS = 9;
+
+// Puntos extra (desplazamientos x, z) donde se busca piso cuando justo debajo hay una rendija
+const _tiendaPuntosTolerancia = (() => {
+  const puntos = [];
+  for (const factor of [0.45, 1]) {
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      puntos.push([
+        Math.cos(a) * TIENDA_TOLERANCIA_HUECOS * factor,
+        Math.sin(a) * TIENDA_TOLERANCIA_HUECOS * factor,
+      ]);
+    }
+  }
+  return puntos;
+})();
+
+function _tiendaGolpePiso(x, z, referencia) {
+  _tiendaOrigen.set(x, referencia + TIENDA_ESCALON_MAXIMO, z);
+  _tiendaDireccion.set(0, -1, 0);
+  _tiendaRaycaster.set(_tiendaOrigen, _tiendaDireccion);
+  _tiendaRaycaster.far = TIENDA_ESCALON_MAXIMO + 400;
+  const golpes = _tiendaRaycaster.intersectObjects(TIENDA.mallasPiso, false);
+  return golpes.length ? golpes[0].point.y : null;
+}
+
+// Altura del piso/puente de la tienda en la posición (x, z). 0 si no hay piso.
+// `referencia` es la altura donde está parado el jugador: solo se considera piso
+// lo que esté a lo sumo un escalón por encima de ella (sirve para el puente sobre el agua
+// y para cualquier altura de la tienda, también negativa).
+// Las rendijas entre las maderas se ignoran (ver TIENDA_TOLERANCIA_HUECOS).
+function tiendaAlturaPiso(x, z, referencia = 0) {
+  if (!TIENDA.mallasPiso.length || !TIENDA.cajaPiso) return 0;
+  const c = TIENDA.cajaPiso;
+  if (x < c.min.x || x > c.max.x || z < c.min.z || z > c.max.z) return 0;
+
+  let y = _tiendaGolpePiso(x, z, referencia);
+  if (y !== null) return y;
+
+  for (const [dx, dz] of _tiendaPuntosTolerancia) {
+    y = _tiendaGolpePiso(x + dx, z + dz, referencia);
+    if (y !== null) return y;
+  }
+  return 0;
 }
 
 function tiendaColisiona(posicion) {
-  if (!TIENDA.posicion) return false;
+  if (!TIENDA.mallasParedes.length || !TIENDA.cajaColision) return false;
 
-  const mitadAncho = TIENDA.anchoColision / 2;
-  const mitadProfundidad = TIENDA.profundidadColision / 2;
+  const radio = jugador ? jugador.margenColision : 10;
+  const c = TIENDA.cajaColision;
+  if (
+    posicion.x < c.min.x - radio ||
+    posicion.x > c.max.x + radio ||
+    posicion.y < c.min.z - radio ||
+    posicion.y > c.max.z + radio
+  ) {
+    return false;
+  }
 
-  return (
-    Math.abs(posicion.x - TIENDA.posicion.x) <= mitadAncho &&
-    Math.abs(posicion.y - TIENDA.posicion.y) <= mitadProfundidad
+  const base = tiendaAlturaPiso(
+    posicion.x,
+    posicion.y,
+    jugador ? jugador.alturaPiso || 0 : 0,
   );
+  _tiendaRaycaster.far = radio;
+  for (const altura of TIENDA_ALTURAS_RAYOS) {
+    _tiendaOrigen.set(posicion.x, base + altura, posicion.y);
+    for (const dir of _tiendaDireccionesRayos) {
+      _tiendaRaycaster.set(_tiendaOrigen, dir);
+      if (_tiendaRaycaster.intersectObjects(TIENDA.mallasParedes, false).length)
+        return true;
+    }
+  }
+  return false;
 }
 
-function crearObjetoTienda3D() {
-  if (!TIENDA.posicion || !escena3D) return;
-
-  const cargadorOBJ = new THREE.OBJLoader();
-  cargadorOBJ.load(
-    "models/tienda/source/Tienda_02.obj",
-    (modelo) => {
-      const textura = new THREE.TextureLoader().load(
-        "models/tienda/textures/Tienda_02_initialShadingGroup_BaseColor.10.png",
-      );
-      textura.colorSpace = THREE.SRGBColorSpace;
-
-      modelo.traverse((objeto) => {
-        if (!objeto.isMesh) return;
-        objeto.material = new THREE.MeshStandardMaterial({
-          map: textura,
-          roughness: 0.82,
-          metalness: 0,
-          side: THREE.DoubleSide,
-        });
-      });
-
-      const caja = new THREE.Box3().setFromObject(modelo);
-      const centro = caja.getCenter(new THREE.Vector3());
-      const tamaño = caja.getSize(new THREE.Vector3());
-      const escala = (TAMAÑO_CELDA * 1.8) / Math.max(tamaño.x, tamaño.y, tamaño.z);
-
-      modelo.position.sub(centro);
-      modelo.scale.setScalar(escala);
-      modelo.rotation.y = Math.PI;
-      modelo.position.set(TIENDA.posicion.x, 0, TIENDA.posicion.y);
-      escena3D.add(modelo);
-      TIENDA.objetoMundo = modelo;
-    },
-    undefined,
-    (error) => console.error("No se pudo cargar la tienda 3D:", error),
-  );
+// Entrada accesible desde la zona de interacción: busca un punto libre dentro del edificio.
+TIENDA.regreso = null;
+function puntoInteriorTienda() {
+  if(!TIENDA.mallasParedes.length)return null;
+  const casa=TIENDA.mallasParedes.find(m=>(m.name||'').toLowerCase().includes('house'));
+  if(!casa)return null;
+  const caja=new THREE.Box3().setFromObject(casa),centro=caja.getCenter(new THREE.Vector3());
+  for(const radio of [0,20,40,60,80])for(let i=0;i<8;i++){
+    const pos=createVector(centro.x+Math.cos(i*Math.PI/4)*radio,centro.z+Math.sin(i*Math.PI/4)*radio);
+    if(pos.x<caja.min.x+15||pos.x>caja.max.x-15||pos.y<caja.min.z+15||pos.y>caja.max.z-15)continue;
+    if(!tiendaColisiona(pos))return pos;
+  }
+  return null;
 }
-
-window.crearObjetoTienda3D = crearObjetoTienda3D;
-
+function entrarALaTienda() {
+  if(TIENDA.regreso)return true;
+  const destino=puntoInteriorTienda();if(!destino)return false;
+  TIENDA.regreso={x:jugador.posicion.x,y:jugador.posicion.y,angulo:jugador.angulo,inclinacion:jugador.inclinacion};
+  jugador.posicion.set(destino);jugador.angulo=-Math.PI/2;jugador.inclinacion=0;
+  jugador.alturaPiso=tiendaAlturaPiso(destino.x,destino.y,0);jugador.alturaSalto=0;
+  return true;
+}
+function salirDeLaTienda() {
+  if(!TIENDA.regreso)return;
+  const p=TIENDA.regreso;jugador.posicion.set(p.x,p.y);jugador.angulo=p.angulo;jugador.inclinacion=p.inclinacion;
+  jugador.alturaPiso=0;TIENDA.regreso=null;
+}

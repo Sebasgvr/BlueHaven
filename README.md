@@ -1,336 +1,115 @@
-# 🎣 BlueHaven
+# 🎣 Blue Haven
 
-> **Videojuego educativo 3D sobre pesca deportiva y conocimiento de especies.**
+Juego de pesca 3D educativo para navegador. Explorá el lago, capturá nueve especies, superá cinco familias de minijuegos, vendé tus capturas y mejorá tu caña.
 
-BlueHaven es un videojuego de pesca desarrollado con un enfoque **educativo y recreativo**. El objetivo del proyecto es crear una experiencia interactiva en la que los jugadores puedan aprender sobre el mundo de la pesca mientras exploran diferentes ambientes, utilizan distintos elementos de pesca y capturan diversas especies de peces.
+Esta versión integra el trabajo de [Sebasgvr/BlueHaven](https://github.com/Sebasgvr/BlueHaven), principalmente `backend`, con los recursos adicionales de `diseños`. Conserva el juego original y mejora rendimiento, guardado y funcionamiento local. Ver [procedencia y créditos](docs/PROCEDENCIA.md).
 
-El juego busca enseñar, de una manera entretenida y práctica, aspectos relacionados con la pesca, como **qué especies existen, dónde se encuentran, qué elementos se necesitan para pescarlas y cuáles son las características de cada especie**.
+## Jugar como invitado
 
-🚧 **El proyecto se encuentra actualmente en desarrollo.**
+No requiere PHP ni base de datos. Desde la carpeta del proyecto:
 
----
+```sh
+python3 -m http.server 8000
+```
 
-## 🎮 Concepto del videojuego
+Abrí **http://localhost:8000** y elegí **Jugar sin cuenta**. La partida de invitado se guarda en este navegador. Se puede pescar, vender, comprar/equipar la caña, consultar la enciclopedia y usar la guía local. Las cuentas requieren la instalación completa de abajo. No abras `index.html` directamente con `file://`.
 
-BlueHaven será un videojuego desarrollado en **3D** en el que el jugador podrá recorrer diferentes entornos relacionados con la pesca y realizar actividades propias de un pescador.
+## Jugar con cuentas de Supabase
 
-La idea principal no es solamente capturar peces, sino que cada captura permita al jugador **aprender información relacionada con la especie pescada**.
+El juego usa **Supabase Auth + PostgreSQL**, conectado al proyecto `kzjdaobtjzrpqwtjcjfx`. Ya no necesita PHP ni MariaDB.
 
-Por ejemplo, al capturar un pez, el jugador podrá conocer:
+El propietario debe ejecutar una vez [`supabase/instalar.sql`](supabase/instalar.sql) en el SQL Editor de Supabase. La [guía de configuración](supabase/README.md) explica la instalación, la confirmación de email y las direcciones de redirección.
 
-* 🐟 Nombre de la especie.
-* 🌎 Hábitat donde vive.
-* 📍 Lugares donde puede encontrarse.
-* 🌊 Tipo de ambiente en el que habita.
-* 🪝 Tipo de anzuelo recomendado.
-* 🧵 Tipo de línea necesaria.
-* 🪶 Señuelos o cebos utilizados.
-* 📏 Tamaño aproximado.
-* ⚖️ Peso aproximado.
-* 📚 Información y características de la especie.
+Después, el mismo servidor estático del modo invitado permite crear cuentas e iniciar sesión con **email y contraseña**. El dinero, la caña, las capturas, la enciclopedia y la mochila se guardan en Supabase. La clave de `config.js` es pública; los permisos se aplican en la base de datos.
 
-De esta manera, el jugador podrá aprender progresivamente mientras juega.
+Opcionalmente se puede servir el juego con Docker:
 
----
+```sh
+docker compose up --build -d
+```
 
-# 🎯 Objetivos
+Abrí `http://localhost:8080`. Este contenedor solo sirve archivos; los datos están en tu proyecto de Supabase.
 
-## Objetivo principal
+## Controles
 
-Desarrollar un videojuego 3D educativo que permita aprender sobre la pesca y las diferentes especies de peces mediante una experiencia interactiva.
+| Acción | Control |
+|---|---|
+| Moverte | W, A, S, D |
+| Mirar | Mouse, después de hacer clic en la escena |
+| Saltar / enganchar / pulso | Espacio |
+| Agacharte | Control |
+| Lanzar / recoger / arriesgar | F |
+| Entrar a la tienda: comprar y vender | E |
+| Mochila y equipamiento | I |
+| Enciclopedia | L |
+| Guía de pesca | Q o botón inferior derecho |
+| Ajustes / cerrar el panel abierto | Escape |
+| Liberar o capturar el cursor | P |
+| Ritmo | A/S/D o Z/X/C |
 
-## Objetivos específicos
+Acercate a la tienda y presioná E para entrar, incluso sin peces. Elegí Comprar o Vender; el panel permite seguir explorando el interior o salir. Con I podés cambiar tu equipo desde cualquier lugar.
 
-* Crear un entorno 3D relacionado con la pesca.
-* Permitir al jugador explorar diferentes zonas del mapa.
-* Implementar mecánicas básicas de pesca.
-* Incorporar diferentes especies de peces.
-* Mostrar información educativa sobre cada especie.
-* Enseñar qué elementos son necesarios para realizar una determinada pesca.
-* Relacionar las especies con sus respectivos hábitats.
-* Crear una experiencia entretenida y accesible para aprender.
-* Incorporar progresivamente nuevos mapas, especies y mecánicas.
+| Equipo | Precio | Efecto |
+|---|---|---|
+| Caña de bambú | $150 | Reduce 15 % la dificultad |
+| Caña de metal | $500 | Reduce 25 % la dificultad |
+| Lombrices, paquete de 5 | $35 | Reduce 30 % la espera |
+| Mariscos, paquete de 5 | $75 | Aumenta el peso de las especies raras en el sorteo |
+| Anzuelo de precisión | $90 | Agrega 0,15 segundos para enganchar |
+| Anzuelo reforzado | $200 | Reduce 10 % la dificultad |
 
----
+Las cañas y los anzuelos son permanentes. Se consume un cebo por lanzamiento al agua; al agotarse volvés al equipo sin cebo. Los efectos de la caña y el anzuelo se combinan. Las compras y el equipo de las cuentas se guardan en Supabase. La bienvenida explica los minijuegos. El juego está pensado para escritorio con teclado y mouse.
 
-# 🐟 ¿Qué se podrá aprender?
+## Mejoras incluidas
 
-Uno de los principales objetivos de BlueHaven es que el jugador pueda aprender **cómo, dónde y con qué se puede pescar**.
+- Terreno con `InstancedMesh`: 23 grupos en lugar de una malla por cada celda.
+- Tienda reducida de **45.561.576 a aproximadamente 1.000.000 bytes**, con texturas WebP de hasta 512 px. Se conserva la geometría del edificio.
+- Bibliotecas Three.js locales; el arranque ya no depende de un CDN. Fuentes del sistema.
+- Calidad gráfica baja/media/alta, contador opcional de rendimiento y pausa al ocultar la pestaña.
+- Movimiento ajustado al tiempo transcurrido; chat y ajustes bloquean los controles.
+- Catálogo compartido para pesca, enciclopedia y guía de invitado; Pez Globo agregado a la base.
+- Progreso de invitado separado de cada cuenta. El inventario vacío del servidor reemplaza correctamente el local.
+- Precio, calidad y riesgo guardados por ejemplar. Las ventas y la compra de caña se realizan en transacciones del servidor.
+- Capturas con identificador único, límite de mochila en servidor y registro de especies aun cuando se libera el pez por mochila llena.
+- Los errores de conexión se muestran sin transformar una operación fallida en dinero local.
+- Árbol de la rama `diseños` incorporado al escenario y logo integrado.
 
-El contenido educativo podrá abarcar diferentes temas.
+## Desarrollo y pruebas
 
-### 🎣 Equipamiento
+Node.js 20+ solo es necesario para las herramientas de desarrollo:
 
-El jugador podrá aprender sobre elementos como:
+```sh
+npm ci
+npm test
+npx playwright install chromium
+npm run test:browser
+npm run test:supabase
+```
 
-* Cañas.
-* Líneas.
-* Anzuelos.
-* Cebos y señuelos.
-* Accesorios de pesca.
+La prueba de navegador usa `http://127.0.0.1:8080`; se puede cambiar con `TEST_URL`. Para comprobar la base ejecutá `npm run test:supabase`: levanta un stack local de pruebas con Auth, PostgreSQL y PostgREST. `test:api` requiere `SUPABASE_TEST_URL` y `SUPABASE_TEST_ANON_KEY` de ese stack y crea cuentas de prueba; no utiliza el proyecto alojado. Para usar Chromium ya instalado: `CHROMIUM_PATH=/ruta/a/chromium npm run test:browser`.
 
-### 🐠 Especies
+`npm run optimize:shop -- entrada.glb salida.glb` reproduce la optimización de modelos. El archivo integrado ya está optimizado; usá como entrada el original al repetir el proceso.
 
-Cada especie contará con información propia, permitiendo conocer:
+## Alcance actual
 
-* Su nombre.
-* Sus características.
-* Su alimentación.
-* Su hábitat.
-* Su comportamiento.
-* Su tamaño.
-* Las condiciones en las que puede encontrarse.
-* Las técnicas utilizadas para capturarla.
+Es un juego de un jugador. El servidor valida especies, precios, propiedad del inventario y saldo, pero el resultado del minijuego y la tirada de calidad todavía se originan en el cliente; no es un sistema antitrampas para rankings competitivos. Las cuentas requieren conexión para guardar capturas y efectuar compras/ventas. El invitado funciona de forma independiente y no se importa automáticamente a una cuenta.
 
-### 🌎 Hábitats
+Las nueve especies combinan contenido real y fantasía del prototipo. Las especies marinas se pueden capturar en el lago; los biomas y la selección de equipamiento por hábitat quedan para otra etapa.
 
-El juego podrá representar diferentes ambientes, por ejemplo:
+## Integración actual de Supabase
 
-* Ríos.
-* Lagunas.
-* Lagos.
-* Arroyos.
-* Zonas costeras.
-* Otros ambientes acuáticos.
+`base-datos.js` concentra el acceso a Auth y las funciones RPC. Las políticas RLS aíslan las cuentas; las funciones de PostgreSQL calculan precios y ejecutan ventas/compras en transacciones. El catálogo del usuario se descarga de Supabase y también alimenta la enciclopedia y la guía. El modo invitado sigue usando su partida local independiente. Ver [instalación](supabase/README.md) y [validación](docs/VALIDACION.md).
 
-Cada ambiente podrá contener diferentes especies y condiciones de pesca.
+## Publicación en GitHub Pages
 
-# 🗺️ Exploración
+GitHub Pages está configurado para publicar la rama `main`, carpeta raíz, en:
 
-BlueHaven contará con un **mundo 3D explorable**.
+https://nicori25.github.io/Blue-Haven/
 
-El jugador podrá desplazarse por diferentes zonas del mapa y descubrir lugares donde realizar actividades de pesca.
+El archivo `.nojekyll` permite servir directamente los archivos estáticos del repositorio. Cada cambio en `main` vuelve a publicar; las ramas alternativas no reemplazan el sitio principal.
 
-La exploración tendrá un papel importante porque las diferentes especies no estarán disponibles necesariamente en todos los lugares.
+En Supabase → Authentication → URL Configuration, la dirección de producción debe ser `https://nicori25.github.io/Blue-Haven/` y la lista de redirecciones debe incluir `https://nicori25.github.io/Blue-Haven/**`, conservando las URLs de desarrollo que necesites. El cliente ya usa el origen y la ruta actuales al solicitar la confirmación del email.
 
-Esto permitirá que el jugador tenga que:
+En Ajustes (Esc) podés cambiar gráficos, rendimiento, volumen y silencio, y cerrar sesión. El volumen se guarda en este navegador y controla la salida general de audio; esta versión todavía no incluye música ni efectos sonoros. El cursor se captura al entrar mediante el botón de acceso; al recuperar una sesión automáticamente el navegador puede requerir P o un clic. La guía (Q) bloquea el movimiento mientras escribís.
 
-1. Explorar el entorno.
-2. Identificar una zona adecuada.
-3. Analizar qué especies pueden encontrarse.
-4. Seleccionar el equipamiento correspondiente.
-5. Elegir una técnica de pesca.
-6. Intentar realizar la captura.
-7. Obtener información sobre el pez capturado.
-
----
-
-# 🎣 Mecánica de pesca
-
-La mecánica principal del juego será la **pesca**.
-
-El jugador deberá utilizar los elementos disponibles para intentar capturar diferentes peces.
-
-La mecánica podrá incluir progresivamente:
-
-* Selección de caña.
-* Selección de línea.
-* Selección de anzuelo.
-* Selección de cebo o señuelo.
-* Lanzamiento.
-* Espera de la picada.
-* Detección de la captura.
-* Control del pez durante la pelea.
-* Recuperación de la línea.
-* Captura del pez.
-* Registro de la especie obtenida.
-
-La dificultad podrá variar dependiendo de la especie y del equipamiento utilizado.
-
----
-
-# 📖 Componente educativo
-
-BlueHaven está pensado como algo más que un videojuego de pesca.
-
-La intención es utilizar las mecánicas del videojuego para **transmitir conocimientos sobre pesca**.
-
-Por ejemplo, si el jugador intenta pescar una especie utilizando un equipamiento incorrecto, el juego podría proporcionar información explicando qué elemento sería más adecuado y por qué.
-
-De esta manera, el jugador puede aprender mediante:
-
-**Exploración → Experimentación → Pesca → Información → Aprendizaje**
-
-También se podrá incorporar una **enciclopedia o catálogo de especies** donde se almacene la información de los peces que el jugador haya descubierto.
-
----
-
-# 🏆 Progresión
-
-A medida que avance el desarrollo, se espera incorporar un sistema de progresión que permita al jugador desbloquear nuevos contenidos.
-
-Entre las posibles características se encuentran:
-
-* Nuevas cañas.
-* Nuevos anzuelos.
-* Nuevos cebos y señuelos.
-* Nuevas zonas de pesca.
-* Nuevas especies.
-* Peces de mayor dificultad.
-* Desafíos.
-* Misiones educativas.
-* Registro de capturas.
-* Colección de especies.
-* Logros.
-
----
-
-# 🌱 Estado actual del proyecto
-
-🚧 **BlueHaven se encuentra actualmente en desarrollo.**
-
-El proyecto se encuentra en una etapa inicial y se están implementando progresivamente las diferentes características del videojuego.
-
-## Primera versión
-
-En la **primera versión del proyecto** se logró implementar:
-
-### 🗺️ Mapa
-
-Se desarrolló la primera versión del mapa del videojuego, creando el entorno inicial en el que se desarrollará la experiencia de pesca.
-
-### 🎣 Pesca básica
-
-También se implementó la **funcionalidad básica de pesca**, permitiendo establecer las primeras interacciones relacionadas con esta mecánica.
-
-Esta primera versión funciona como una base sobre la cual se continuarán desarrollando las características del videojuego.
-
----
-
-# 🚧 Próximas funcionalidades
-
-Entre las características que se planean incorporar durante el desarrollo se encuentran:
-
-* [ ] Mejorar y ampliar el mapa.
-* [ ] Incorporar nuevos ambientes.
-* [ ] Agregar diferentes especies de peces.
-* [ ] Implementar información educativa de cada especie.
-* [ ] Crear un catálogo de peces.
-* [ ] Mejorar la mecánica de pesca.
-* [ ] Incorporar diferentes tipos de cañas.
-* [ ] Incorporar diferentes tipos de anzuelos.
-* [ ] Incorporar diferentes cebos y señuelos.
-* [ ] Crear un sistema de inventario de equipamiento.
-* [ ] Agregar sistema de progresión.
-* [ ] Agregar desafíos y objetivos.
-* [ ] Mejorar los modelos 3D.
-* [ ] Incorporar animaciones.
-* [ ] Agregar sonidos ambientales.
-* [ ] Agregar efectos de sonido.
-* [ ] Mejorar la interfaz de usuario.
-* [ ] Incorporar información contextual durante la partida.
-* [ ] Crear una enciclopedia de especies.
-* [ ] Agregar nuevas zonas de pesca.
-* [ ] Optimizar el rendimiento del videojuego.
-
----
-
-# 🧩 Tecnologías
-
-El proyecto utiliza herramientas orientadas al desarrollo de videojuegos y contenido interactivo en 3D.
-
-Las tecnologías y herramientas utilizadas podrán evolucionar a medida que avance el proyecto.
-
-Actualmente, el proyecto se encuentra enfocado principalmente en:
-
-* 🎮 Desarrollo de videojuegos.
-* 🧊 Modelado y representación 3D.
-* 💻 Programación.
-* 🎨 Diseño de escenarios.
-* 🐟 Diseño de especies y contenido educativo.
-* 🎣 Implementación de mecánicas de pesca.
-
----
-
-# 👥 Desarrollo
-
-BlueHaven es un proyecto desarrollado de manera colaborativa.
-
-El desarrollo involucra diferentes áreas, entre ellas:
-
-### 🎨 Diseño
-
-Responsable del diseño visual, ambientes, escenarios y elementos que forman parte del mundo del videojuego.
-
-### 💻 Programación
-
-Responsable de desarrollar:
-
-* Mecánicas.
-* Interacciones.
-* Sistemas de juego.
-* Pesca.
-* Comportamiento de peces.
-* Interfaz.
-* Sistemas de información.
-
-### 🗺️ Diseño del mundo
-
-Responsable de crear y organizar los diferentes espacios que forman parte del mapa y las zonas de pesca.
-
-### 📚 Contenido y documentación
-
-Responsable de recopilar y organizar la información educativa que se incorporará al videojuego.
-
----
-
-# 📚 Propósito educativo
-
-El proyecto busca demostrar que un videojuego puede ser utilizado como una herramienta para **aprender mediante la interacción**.
-
-En lugar de presentar la información únicamente mediante textos, BlueHaven busca que el jugador pueda descubrir los conocimientos a través de sus propias acciones dentro del juego.
-
-Por ejemplo:
-
-> El jugador encuentra una especie → descubre dónde vive → aprende qué necesita para pescarla → selecciona el equipamiento adecuado → utiliza una técnica → consigue capturarla → obtiene información sobre la especie.
-
-De esta forma, el conocimiento se encuentra integrado dentro de la propia experiencia de juego.
-
----
-
-# 🌊 Visión del proyecto
-
-La visión a largo plazo de BlueHaven es convertirse en una experiencia de pesca 3D que combine:
-
-**🎮 Videojuego + 🎣 Pesca + 📚 Educación + 🌎 Exploración**
-
-El objetivo es que el jugador no solamente disfrute pescando, sino que termine la experiencia con un mayor conocimiento sobre las especies, los ambientes acuáticos y las técnicas utilizadas en la pesca.
-
----
-
-# 🚀 Desarrollo futuro
-
-BlueHaven todavía se encuentra en una etapa temprana de desarrollo.
-
-La primera versión representa una **base funcional del proyecto**, con un mapa inicial y las primeras mecánicas de pesca implementadas.
-
-A partir de esta base se continuará trabajando en nuevas mecánicas, contenido educativo, especies, equipamiento, ambientes y sistemas de juego.
-
-> **Este proyecto está en constante desarrollo y sus características pueden cambiar, mejorar o ampliarse durante las siguientes versiones.**
-
----
-
-## 📌 Estado
-
-**🟡 En desarrollo**
-
-**Versión actual:** Primera versión / Prototipo inicial
-
-**Características principales actuales:**
-
-* ✅ Mapa inicial.
-* ✅ Entorno del videojuego.
-* ✅ Funcionalidad básica de pesca.
-* 🚧 Contenido educativo.
-* 🚧 Diferentes especies.
-* 🚧 Equipamiento avanzado.
-* 🚧 Nuevas zonas de pesca.
-* 🚧 Sistemas de progresión.
-
----
-
-## 🎣 BlueHaven
-
-**Explorá. Pescá. Aprendé.**
-
-Un videojuego 3D donde cada captura es una oportunidad para aprender algo nuevo sobre el mundo de la pesca.
+El mapa compacto mide 36×31 celdas. Las colisiones de la tienda usan un índice BVH para evitar recorrer todos sus triángulos en cada consulta. Las nueve especies tienen sprite; al ganar una captura aparece una ficha brillante con sus datos de enciclopedia, calidad, valor y estado de guardado. La ficha permanece hasta elegir Seguir pescando o Esc, sin consumir su tiempo de lectura.

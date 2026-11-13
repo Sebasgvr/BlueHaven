@@ -1,149 +1,121 @@
-const pantallaAuth = document.getElementById("pantalla-auth");
-const formLogin = document.getElementById("form-login");
-const formRegistro = document.getElementById("form-registro");
-const tabLogin = document.getElementById("tab-login");
-const tabRegistro = document.getElementById("tab-registro");
-const botonesSubmit = document.querySelectorAll(".form-auth button[type=submit]");
-const botonLogout = document.getElementById("boton-logout");
-
+window.modoInvitado = false;
+window.sesionUsuario = null;
+window.partidaId = 0;
+const pantallaAuth = document.getElementById('pantalla-auth');
+const formLogin = document.getElementById('form-login');
+const formRegistro = document.getElementById('form-registro');
+const tabLogin = document.getElementById('tab-login');
+const tabRegistro = document.getElementById('tab-registro');
+const botonesSubmit = document.querySelectorAll('.form-auth button[type=submit]');
+const botonLogout = document.getElementById('boton-logout');
+let entrando = false;
 function mostrarRegistro() {
-  formLogin.style.display = "none";
-  formRegistro.style.display = "flex";
-  tabLogin.classList.remove("activo");
-  tabRegistro.classList.add("activo");
+  formLogin.style.display = 'none'; formRegistro.style.display = 'flex';
+  tabLogin.classList.remove('activo'); tabRegistro.classList.add('activo');
 }
-
 function mostrarLogin() {
-  formRegistro.style.display = "none";
-  formLogin.style.display = "flex";
-  tabRegistro.classList.remove("activo");
-  tabLogin.classList.add("activo");
+  formRegistro.style.display = 'none'; formLogin.style.display = 'flex';
+  tabRegistro.classList.remove('activo'); tabLogin.classList.add('activo');
 }
-
-function bloquearBotones(bloquear) {
-  botonesSubmit.forEach((b) => (b.disabled = bloquear));
+function bloquearBotones(valor) {
+  botonesSubmit.forEach(b => b.disabled = valor);
+  document.getElementById('boton-invitado').disabled = valor;
 }
-
-formLogin.addEventListener("submit", async (e) => {
+async function entrarConSesion(sesion, errorEl) {
+  if (entrando || document.body.classList.contains('jugando')) return;
+  entrando = true; bloquearBotones(true);
+  window.partidaId++;
+  window.modoInvitado = false;
+  window.sesionUsuario = { usuario_id: sesion.user.id };
+  try { await ocultarAuthYArrancar(errorEl); }
+  finally { entrando = false; bloquearBotones(false); }
+}
+formLogin.addEventListener('submit', async e => {
   e.preventDefault();
-  const usuario = document.getElementById("login-usuario").value;
-  const password = document.getElementById("login-password").value;
-  const errorEl = document.getElementById("login-error");
-  errorEl.textContent = "";
+  capturarCursor();
+  const errorEl = document.getElementById('login-error'); errorEl.textContent = '';
   bloquearBotones(true);
-
   try {
-    const res = await fetch("api/login.php", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ usuario, password }),
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      errorEl.textContent = data.error || "Error al iniciar sesión";
-      bloquearBotones(false);
-      return;
-    }
-
-    if (typeof dinero !== "undefined") dinero = data.dinero || 0;
-    await ocultarAuthYArrancar(errorEl);
-  } catch (err) {
-    errorEl.textContent = "No se pudo conectar al servidor";
-    bloquearBotones(false);
-  }
+    const sesion = await BaseDatos.entrar(document.getElementById('login-usuario').value.trim(), document.getElementById('login-password').value);
+    await entrarConSesion(sesion, errorEl);
+  } catch (err) { errorEl.textContent = err.message; }
+  finally { bloquearBotones(false); }
 });
-
-formRegistro.addEventListener("submit", async (e) => {
+formRegistro.addEventListener('submit', async e => {
   e.preventDefault();
-  const usuario = document.getElementById("reg-usuario").value;
-  const email = document.getElementById("reg-email").value;
-  const password = document.getElementById("reg-password").value;
-  const errorEl = document.getElementById("reg-error");
-  errorEl.textContent = "";
+  capturarCursor();
+  const errorEl = document.getElementById('reg-error'); errorEl.textContent = '';
   bloquearBotones(true);
-
   try {
-    const res = await fetch("api/registro.php", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ usuario, email, password }),
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      errorEl.textContent = data.error || "Error al registrarse";
-      bloquearBotones(false);
-      return;
-    }
-
-    // Registro ok -> logueamos directo con el mismo usuario/contraseña
-    const resLogin = await fetch("api/login.php", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ usuario, password }),
-    });
-    const dataLogin = await resLogin.json();
-
-    if (!resLogin.ok) {
-      // Se registró bien pero el auto-login falló: lo mandamos a loguearse a mano
+    const datos = await BaseDatos.registrar(document.getElementById('reg-usuario').value.trim(), document.getElementById('reg-email').value.trim(), document.getElementById('reg-password').value);
+    if (datos.session) await entrarConSesion(datos.session, errorEl);
+    else {
       mostrarLogin();
-      document.getElementById("login-error").textContent =
-        "Cuenta creada. Iniciá sesión para continuar.";
-      bloquearBotones(false);
-      return;
+      document.getElementById('login-usuario').value = document.getElementById('reg-email').value;
+      document.getElementById('login-error').textContent = 'Revisá tu email y confirmá la cuenta. Después podés iniciar sesión.';
     }
-
-    if (typeof dinero !== "undefined") dinero = dataLogin.dinero || 0;
-    await ocultarAuthYArrancar(errorEl);
-  } catch (err) {
-    errorEl.textContent = "No se pudo conectar al servidor";
-    bloquearBotones(false);
-  }
+  } catch (err) { errorEl.textContent = err.message; }
+  finally { bloquearBotones(false); }
 });
-
-// Chequea si ya había una sesión activa (por ejemplo, al recargar la página)
-async function revisarSesionActiva() {
-  try {
-    const res = await fetch("api/sesion.php");
-    const data = await res.json();
-    if (data.autenticado) {
-      if (typeof dinero !== "undefined") dinero = data.dinero || 0;
-      await ocultarAuthYArrancar(document.getElementById("login-error"));
-    }
-  } catch (err) {
-    // sin conexión, se queda en la pantalla de login
-  }
-}
-
-// Solo esconde la pantalla de auth si el juego arrancó bien.
-// Si algo falla (sesión no confirmada todavía, error de red, etc.)
-// se queda en la pantalla de login mostrando el error, en vez de
-// dejar un canvas vacío.
 async function ocultarAuthYArrancar(errorEl) {
   try {
-    if (typeof iniciarJuego === "function") {
-      await iniciarJuego();
+    if (!window.juegoPreparado) {
+      await new Promise(resolve => window.addEventListener('juego-preparado', resolve, { once: true }));
     }
-    pantallaAuth.style.display = "none";
-    botonLogout.style.display = "block";
-    document.body.classList.add("jugando");
+    await iniciarJuego();
+    pantallaAuth.style.display = 'none'; botonLogout.style.display = 'block';
+    cursorLibre=false;capturarCursor();
+    document.body.classList.add('jugando'); document.getElementById('barra-juego').hidden = false;
+    botonLogout.textContent = window.modoInvitado ? 'Salir de invitado' : 'Cerrar sesión';
   } catch (err) {
-    console.error("No se pudo iniciar el juego:", err);
-    if (errorEl) {
-      errorEl.textContent = "No se pudo cargar el juego. Probá de nuevo.";
-    }
+    if (errorEl) errorEl.textContent = err.message || 'No se pudo cargar tu partida. Reintentá.';
     bloquearBotones(false);
   }
 }
-
-botonLogout.addEventListener("click", async () => {
-  try {
-    await fetch("api/logout.php", { method: "POST" });
-  } catch (err) {
-    // si falla la petición, igual recargamos: la sesión expira sola
+function volverAlAcceso(mensaje = '') {
+  window.partidaId++;
+  if (typeof noLoop === 'function' && window.juegoPreparado) noLoop();
+  if (document.pointerLockElement) document.exitPointerLock();
+  if (typeof cerrarChat === 'function') cerrarChat();
+  document.getElementById('ajustes').close();
+  document.getElementById('tarjeta-captura')?.close();
+  if(typeof dialogoComercio!=='undefined')dialogoComercio.close();
+  document.body.classList.remove('jugando'); document.body.classList.remove('chat-saludado');
+  document.getElementById('chat-mensajes').replaceChildren();
+  document.getElementById('barra-juego').hidden = true;
+  pantallaAuth.style.display = ''; botonLogout.style.display = 'none';
+  window.sesionUsuario = null; window.modoInvitado = false;
+  if (window.juegoPreparado) {
+    sistemaCaptura.cancelar(); retraerAnzuelo(); menuTienda = 'cerrado'; cerrarEnciclopedia();
+    reiniciarEstadoEnMemoria(); clear();
   }
-  location.reload();
+  mostrarLogin(); document.getElementById('login-error').textContent = mensaje;
+}
+botonLogout.addEventListener('click', async () => {
+  botonLogout.disabled = true;
+  try {
+    if (!window.modoInvitado) await BaseDatos.salir();
+    volverAlAcceso();
+  } catch (err) { estadoGuardado('No se pudo cerrar sesión: ' + err.message); }
+  finally { botonLogout.disabled = false; }
 });
-
-revisarSesionActiva();
+document.getElementById('boton-invitado').addEventListener('click', async () => {
+  if (entrando) return;
+  capturarCursor();
+  window.partidaId++;
+  window.modoInvitado = true; window.sesionUsuario = null;
+  await ocultarAuthYArrancar(document.getElementById('login-error'));
+});
+(async () => {
+  try {
+    const sesion = await BaseDatos.sesion();
+    if (sesion && !window.modoInvitado) await entrarConSesion(sesion, document.getElementById('login-error'));
+    BaseDatos.escucharSesion(evento => {
+      if (evento === 'SIGNED_OUT' && !window.modoInvitado && document.body.classList.contains('jugando')) {
+        volverAlAcceso('Tu sesión se cerró. Iniciá sesión para continuar.');
+      }
+    });
+  } catch (err) {
+    if (!window.modoInvitado) document.getElementById('login-error').textContent = err.message;
+  }
+})();

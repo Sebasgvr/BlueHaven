@@ -1,15 +1,16 @@
-const PECES_CAPTURA = [
-  { nombre: "Carpa", rareza: 1, velocidad: 1.0 },
-  { nombre: "Trucha Arcoíris", rareza: 2, velocidad: 1.8 },
-  { nombre: "Atún", rareza: 2, velocidad: 2.3, sprite: "Atun.png" },
-  { nombre: "Calamar", rareza: 3, velocidad: 3.1, sprite: "Calamar.png" },
-  { nombre: "Dragón del Lago", rareza: 3, velocidad: 3.0 },
-  { nombre: "Esturión Gigante", rareza: 4, velocidad: 3.6 },
-  { nombre: "Ballena Azul", rareza: 4, velocidad: 4.0, sprite: "Ballena_azul.png" },
-  { nombre: "Pez Remo", rareza: 5, velocidad: 4.2 },
-];
+const PECES_CAPTURA = CATALOGO_ESPECIES;
 
-// Cada rareza usa un minijuego distinto.
+function elegirPezAleatorio() {
+  const peso = pez => (pez.pesoSeleccion || 1) * (1+(efectosLance.atraccion||0)*(pez.rareza-1));
+  const total = PECES_CAPTURA.reduce((suma, pez) => suma + peso(pez), 0);
+  let tirada = random(total);
+  for (const pez of PECES_CAPTURA) {
+    tirada -= peso(pez);
+    if (tirada <= 0) return pez;
+  }
+  return PECES_CAPTURA[0];
+}
+
 const MINIJUEGOS_POR_RAREZA = {
   1: MinijuegoAnillo,
   2: MinijuegoBrújula,
@@ -33,17 +34,29 @@ class SistemaCaptura {
     this.tiempoAnim = 0;
     this.progresoLanzamiento = 0;
 
-    this.minijuego = null; // minijuego activo, segun la rareza del pez
+    this.minijuego = null;
   }
 
   iniciar(pez) {
-    this.pez = pez;
+    // Clonamos la plantilla para no fijar la calidad de la especie.
+    const calidad = rollCalidad();
+    this.pez = Object.assign({}, pez, {
+      calidadId: calidad.id,
+      multiplicadorCalidad: calidad.multiplicador,
+      escalaDificultad: efectosLance.dificultad,
+      capturaRiesgo: false,
+      precio: 0,
+      mecanicasActivas: [],
+    });
+
     this.estado = "esperando_mordida";
-    this.timerEspera = random(3, 8);
+    this.timerEspera = random(3, 8) * efectosLance.espera;
+    this.ventanaTiming = 0.4 + efectosLance.enganche;
     this.tiempoAnim = 0;
     this.resultadoEnganche = "";
     this.screenshake = 0;
     this.progresoLanzamiento = 0;
+    this.riesgo = false;
     this.minijuego = null;
   }
 
@@ -62,10 +75,21 @@ class SistemaCaptura {
       this.timerFase = 0.6;
     } else if (this.estado === "lucha") {
       if (this.minijuego) this.minijuego.presionarBoton(entrada);
+    } else if (this.estado === "decidiendo_riesgo") {
+      if (this.timerFase <= 0) this.elegirRiesgo(false);
     }
   }
 
-  // Teclas especificas (A/S/D/Z/X/C) para minijuegos de ritmo multi-pista.
+  elegirRiesgo(arriesgar) {
+    if (this.estado !== "decidiendo_riesgo") return;
+    const calidad = calidadDe(this.pez);
+    this.riesgo = !!arriesgar;
+    this.pez.capturaRiesgo = this.riesgo;
+    this.pez.escalaDificultad = (this.riesgo ? calidad.escalaDificultad : 1) * efectosLance.dificultad;
+    this.pez.mecanicasActivas = calcularMecanicas(this.pez, this.riesgo);
+    this._crearMinijuego();
+  }
+
   presionarTecla(tecla, keyCode) {
     if (this.estado === "lucha" && this.minijuego) {
       if (this.minijuego.aceptaTeclas()) {
@@ -78,16 +102,25 @@ class SistemaCaptura {
     if (this.minijuego) this.minijuego.soltarBoton();
   }
 
+  soltarTecla(tecla, keyCode) {
+    if (this.estado === "lucha" && this.minijuego) {
+      this.minijuego.soltarTecla({ tecla, keyCode });
+    }
+  }
+
   cancelar() {
     this.estado = "inactivo";
     this.minijuego = null;
   }
 
   actualizar() {
-    const dt = deltaTime / 1000;
+    const dt = Math.min(deltaTime / 1000, 0.05);
     this.tiempoAnim += dt;
     if (this.estado !== "inactivo") {
-      this.progresoLanzamiento = Math.min(1, this.progresoLanzamiento + dt * 2.8);
+      this.progresoLanzamiento = Math.min(
+        1,
+        this.progresoLanzamiento + dt * 2.8,
+      );
     }
     if (this.screenshake > 0)
       this.screenshake = max(0, this.screenshake - dt * 3);
@@ -96,9 +129,11 @@ class SistemaCaptura {
       case "esperando_mordida":
         this.timerEspera -= dt;
         if (this.timerEspera <= 0) {
-          if (this.pez && this.pez.rareza <= 1) {
-            // los peces comunes van directo al minijuego, sin enganche previo
+          const calidad = calidadDe(this.pez);
+          if (this.pez && this.pez.rareza <= 1 && calidad.id === "comun") {
             this._crearMinijuego();
+          } else if (this.pez && this.pez.rareza <= 1) {
+            this._irADecision();
           } else {
             this.estado = "tiron_suave";
             this.timerFase = 0.3;
@@ -141,12 +176,20 @@ class SistemaCaptura {
             this.resultadoEnganche === "perfecto" ||
             this.resultadoEnganche === "bueno"
           ) {
-            this._crearMinijuego();
+            if (calidadDe(this.pez).id === "comun") {
+              this._crearMinijuego();
+            } else {
+              this._irADecision();
+            }
           } else {
             this.estado = "esperando_mordida";
             this.timerEspera = random(6, 14);
           }
         }
+        break;
+
+      case "decidiendo_riesgo":
+        if (this.timerFase > 0) this.timerFase -= dt;
         break;
 
       case "lucha":
@@ -162,19 +205,31 @@ class SistemaCaptura {
         }
         break;
 
-      case "capturado":
+      case "capturado": {
+        // Se guarda una sola vez y la ficha permanece hasta que el jugador la cierre.
+        const ejemplar={...this.pez,precio:calcularPrecio(this.pez)};
+        this.estado="inactivo";
+        mostrarTarjetaCaptura(ejemplar);
+        break;
+      }
       case "linea_rota":
       case "pez_escapado":
         this.timerFase -= dt;
         if (this.timerFase <= 0) {
-          if (this.estado === "capturado") agregarPez(this.pez);
           this.estado = "inactivo";
         }
         break;
     }
   }
 
+  _irADecision() {
+    this.estado = "decidiendo_riesgo";
+    this.timerFase = 0.45; // evita que el SPACE del enganche elija sin querer
+    this.screenshake = 0;
+  }
+
   _crearMinijuego() {
+    if (!this.pez.mecanicasActivas) this.pez.mecanicasActivas = [];
     const ClaseMinijuego =
       MINIJUEGOS_POR_RAREZA[this.pez.rareza] || MinijuegoBrújula;
     this.minijuego = new ClaseMinijuego(this.pez);
@@ -192,6 +247,10 @@ class SistemaCaptura {
 
     if (this.estado === "lucha") {
       this.minijuego.dibujar();
+    } else if (this.estado === "decidiendo_riesgo") {
+      pop();
+      this._dibujarDecision();
+      return;
     } else if (
       this.estado === "capturado" ||
       this.estado === "linea_rota" ||
@@ -275,7 +334,11 @@ class SistemaCaptura {
       noStroke();
       textAlign(CENTER, CENTER);
       textSize(13);
-      text("Espera la mordida — [SPACE] para enganchar", cx, height * 0.82);
+      text(
+        "Espera la mordida — [SPACE] enganchar · [F] recoger",
+        cx,
+        height * 0.82,
+      );
     }
 
     if (textoMsg) {
@@ -288,6 +351,132 @@ class SistemaCaptura {
       text(textoMsg, cx, cy - 63);
     }
 
+    if (this.pez && this.estado !== "esperando_mordida") {
+      const calidad = calidadDe(this.pez);
+      fill(0, 0, 0, 120);
+      noStroke();
+      rect(cx - 90, height * 0.15 - 16, 180, 34, 8);
+      dibujarEtiquetaCalidad(calidad, cx, height * 0.15 + 1, 12, "centro");
+    }
+
+    textAlign(LEFT, BASELINE);
+  }
+
+  _dibujarDecision() {
+    const cx = width / 2;
+    const calidad = calidadDe(this.pez);
+
+    fill(16, 20, 28);
+    noStroke();
+    rect(0, 0, width, height);
+
+    noStroke();
+    for (let i = 3; i >= 1; i--) {
+      fill(calidad.color[0], calidad.color[1], calidad.color[2], 12 * i);
+      ellipse(cx, height * 0.42, 90 + i * 34, 90 + i * 34);
+    }
+
+    fill(255, 225, 120);
+    textAlign(CENTER, CENTER);
+    textSize(22);
+    text(this.pez.nombre, cx, height * 0.14);
+
+    const imagen = this.pez.sprite && spritesPeces[this.pez.sprite];
+    if (imagen) {
+      image(imagen, cx - 40, height * 0.22, 80, 80);
+    } else {
+      fill(45, 52, 64);
+      rect(cx - 40, height * 0.22, 80, 80, 10);
+      fill(150, 165, 185);
+      textSize(28);
+      text("?", cx, height * 0.22 + 40);
+    }
+
+    dibujarEtiquetaCalidad(calidad, cx, height * 0.46, 16, "centro");
+
+    const base = precioBaseDe(this.pez);
+    const valorSeguro = Math.round(base * calidad.multiplicador);
+    const valorRiesgo = Math.round(base * calidad.multiplicador * BONUS_RIESGO);
+    const escalaPct = Math.round((calidad.escalaDificultad - 1) * 100);
+
+    fill(220, 232, 245);
+    textSize(14);
+    text(
+      "Valor del ejemplar: x" + calidad.multiplicador.toFixed(2),
+      cx,
+      height * 0.52,
+    );
+
+    fill(150, 220, 255);
+    textSize(12);
+    text(
+      "Seguro: $" + valorSeguro + " · dificultad normal",
+      cx,
+      height * 0.575,
+    );
+    fill(255, 195, 90);
+    text(
+      "Arriesgar: $" + valorRiesgo + " · dificultad +" + escalaPct + "%",
+      cx,
+      height * 0.62,
+    );
+
+    // La calidad define las mecánicas de cada modo.
+    const mecanicasSeguras = calcularMecanicas(this.pez, false);
+    const mecanicasRiesgo = calcularMecanicas(this.pez, true);
+    const nombresSeguros =
+      mecanicasSeguras.length > 0
+        ? nombresMecanicas(mecanicasSeguras).join(" · ")
+        : "ninguna";
+    const nombresRiesgo =
+      mecanicasRiesgo.length > 0
+        ? nombresMecanicas(mecanicasRiesgo).join(" · ")
+        : "ninguna";
+
+    fill(190, 205, 225);
+    textSize(10);
+    text("Mecánicas del ejemplar", cx, height * 0.67);
+    fill(150, 220, 255);
+    text(
+      "Normal (" + mecanicasSeguras.length + "): " + nombresSeguros,
+      cx,
+      height * 0.71,
+      Math.min(width - 60, 820),
+    );
+    fill(255, 195, 90);
+    text(
+      "Riesgo (" + mecanicasRiesgo.length + "): " + nombresRiesgo,
+      cx,
+      height * 0.75,
+      Math.min(width - 60, 820),
+    );
+
+    const cajaY = height * 0.81;
+    const cajaW = Math.min(210, width * 0.38);
+    const cajaH = 44;
+    const sep = 18;
+
+    fill(25, 75, 55, 240);
+    stroke(70, 180, 120);
+    strokeWeight(1.5);
+    rect(cx - cajaW - sep / 2, cajaY, cajaW, cajaH, 8);
+    fill(170, 255, 195);
+    noStroke();
+    textSize(13);
+    text("[SPACE]  Pelea normal", cx - cajaW / 2 - sep / 4, cajaY + cajaH / 2);
+
+    fill(95, 55, 20, 240);
+    stroke(255, 170, 70);
+    strokeWeight(1.5);
+    rect(cx + sep / 2, cajaY, cajaW, cajaH, 8);
+    fill(255, 210, 140);
+    noStroke();
+    text("[F]  Arriesgar", cx + cajaW / 2 + sep / 4, cajaY + cajaH / 2);
+
+    fill(160, 175, 195);
+    textSize(11);
+    text("Si arriesgás y fallás, el ejemplar se escapa.", cx, height * 0.9);
+
     textAlign(LEFT, BASELINE);
   }
 
@@ -296,14 +485,20 @@ class SistemaCaptura {
     noStroke();
     rect(0, 0, width, height);
 
+    const calidad = calidadDe(this.pez);
     let msg = "";
     let cFondo = color(0, 0, 0, 0);
     let cTxt = color(255);
 
     if (this.estado === "capturado") {
       msg = "¡CAPTURADO!";
-      cFondo = color(20, 150, 55, 210);
-      cTxt = color(255, 240, 70);
+      cFondo = color(
+        calidad.color[0] * 0.28,
+        calidad.color[1] * 0.28,
+        calidad.color[2] * 0.28,
+        235,
+      );
+      cTxt = color(255, 240, 90);
     } else if (this.estado === "linea_rota") {
       msg = "¡Línea rota!";
       cFondo = color(150, 20, 20, 210);
@@ -317,13 +512,88 @@ class SistemaCaptura {
     fill(cFondo);
     rect(0, 0, width, height);
 
-    fill(0, 0, 0, 130);
-    rect(width / 2 - 210, height / 2 - 50, 420, 100, 12);
+    const cx = width / 2;
+    const cy = height / 2;
 
-    fill(cTxt);
-    textAlign(CENTER, CENTER);
-    textSize(46);
-    text(msg, width / 2, height / 2);
+    if (this.estado === "capturado" && calidad.nivel >= 4) {
+      noStroke();
+      for (let i = 0; i < 22; i++) {
+        const angulo = this.tiempoAnim * 0.9 + i * 0.62;
+        const radio = 55 + (i % 6) * 22 + sin(this.tiempoAnim * 2 + i) * 9;
+        const px = cx + cos(angulo) * radio * 1.7;
+        const py = cy + sin(angulo) * radio;
+        const brillo = (sin(this.tiempoAnim * 3 + i) + 1) / 2;
+        fill(
+          calidad.color[0],
+          calidad.color[1],
+          calidad.color[2],
+          70 + brillo * 130,
+        );
+        ellipse(px, py, 3 + brillo * 4, 3 + brillo * 4);
+      }
+    }
+
+    if (this.estado === "capturado") {
+      fill(8, 12, 18, 190);
+      noStroke();
+      rect(cx - 235, cy - 118, 470, 236, 16);
+
+      fill(cTxt);
+      textAlign(CENTER, CENTER);
+      textSize(42);
+      text(msg, cx, cy - 78);
+
+      fill(255);
+      textSize(22);
+      text(this.pez.nombre, cx, cy - 32);
+
+      dibujarEtiquetaCalidad(calidad, cx, cy + 2, 15, "centro");
+
+      fill(255, 230, 150);
+      textSize(20);
+      text("$" + precioDe(this.pez), cx, cy + 38);
+
+      textSize(12);
+      if (this.pez.capturaRiesgo) {
+        fill(255, 195, 90);
+        text(
+          "Bonus por riesgo +" + Math.round((BONUS_RIESGO - 1) * 100) + "%",
+          cx,
+          cy + 62,
+        );
+      } else {
+        fill(170, 200, 230);
+        text("Captura segura", cx, cy + 62);
+      }
+
+      if (this.pez.capturaRiesgo && calidad.nivel >= 4) {
+        fill(255, 235, 150);
+        textSize(11);
+        text(
+          "¡Ejemplar " + calidad.nombre.toLowerCase() + " asegurado!",
+          cx,
+          cy + 82,
+        );
+      }
+    } else {
+      fill(0, 0, 0, 150);
+      rect(cx - 210, cy - 50, 420, 100, 12);
+
+      fill(cTxt);
+      textAlign(CENTER, CENTER);
+      textSize(42);
+      text(msg, cx, cy - 8);
+
+      if (this.pez && calidad.id !== "comun") {
+        fill(190, 205, 225);
+        textSize(13);
+        text(
+          "Se te escapó un ejemplar " + calidad.nombre.toLowerCase(),
+          cx,
+          cy + 28,
+        );
+      }
+    }
 
     textAlign(LEFT, BASELINE);
   }
