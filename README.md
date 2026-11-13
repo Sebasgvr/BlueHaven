@@ -45,6 +45,7 @@ Abrí `http://localhost:8080`. Este contenedor solo sirve archivos; los datos es
 | Guía de pesca | Q o botón inferior derecho |
 | Ajustes / cerrar el panel abierto | Escape |
 | Liberar o capturar el cursor | P |
+| Ranking | R o botón 🏆 |
 | Ritmo | A/S/D o Z/X/C |
 
 Acercate a la tienda y presioná E para entrar, incluso sin peces. Elegí Comprar o Vender; el panel permite seguir explorando el interior o salir. Con I podés cambiar tu equipo desde cualquier lugar.
@@ -110,8 +111,32 @@ El archivo `.nojekyll` permite servir directamente los archivos estáticos del r
 
 En Supabase → Authentication → URL Configuration, la dirección de producción debe ser `https://nicori25.github.io/Blue-Haven/` y la lista de redirecciones debe incluir `https://nicori25.github.io/Blue-Haven/**`, conservando las URLs de desarrollo que necesites. El cliente ya usa el origen y la ruta actuales al solicitar la confirmación del email.
 
-En Ajustes (Esc) podés cambiar gráficos, rendimiento, volumen y silencio, y cerrar sesión. El volumen se guarda en este navegador y controla la salida general de audio; esta versión todavía no incluye música ni efectos sonoros. El cursor se captura al entrar mediante el botón de acceso; al recuperar una sesión automáticamente el navegador puede requerir P o un clic. La guía (Q) bloquea el movimiento mientras escribís.
+En Ajustes (Esc) podés cambiar gráficos, rendimiento, volumen y silencio, y cerrar sesión. El volumen se guarda en este navegador y controla la salida general de audio; incluye ambiente del lago, melodías suaves y efectos originales sintetizados. El cursor se captura al entrar mediante el botón de acceso; al recuperar una sesión automáticamente el navegador puede requerir P o un clic. La guía (Q) bloquea el movimiento mientras escribís.
 
 El mapa compacto mide 36×31 celdas. Las colisiones de la tienda usan un índice BVH para evitar recorrer todos sus triángulos en cada consulta. Las nueve especies tienen sprite; al ganar una captura aparece una ficha brillante con sus datos de enciclopedia, calidad, valor y estado de guardado. La ficha permanece hasta elegir Seguir pescando o Esc, sin consumir su tiempo de lectura.
 
 El diseño forestal de `Sebasgvr/BlueHaven/backend` está adaptado al mapa actual: árboles de borde, bosque interior y segunda fila oscura, suelo y fondo exterior con niebla. Se dibujan las tres capas por instancias. Los troncos bloquean el paso, el lago solo permite caminar sobre el puente y el acceso a la tienda queda libre.
+
+Los formularios de acceso y registro aceptan únicamente los dominios de proveedores indicados en “Correos permitidos y reglas”. La lista incluye Gmail, Googlemail, Hotmail, Outlook, Live, MSN, Yahoo, iCloud, Proton, AOL, GMX, Mail y Zoho, con sus variantes regionales declaradas. Se comparan dominios completos. El nombre de jugador y la parte del correo anterior a @ se revisan contra una lista de palabras ofensivas, con normalización de acentos, mayúsculas, números y separadores comunes; las contraseñas conservan sus reglas de seguridad. La confirmación de correo sigue verificando la dirección.
+
+Supabase valida también los registros nuevos y los cambios de email/nombre, incluso si se omiten los formularios. El juego aplica el filtro al iniciar sesión y recuperar una sesión guardada; las cuentas existentes conservan sus datos y los dominios fuera de lista se rechazan desde el juego. La lista no es un detector semántico de todas las ofensas posibles. Ver `filtros-cuentas.js` y la migración de filtros para modificar la política de forma coherente.
+
+## Audio, ranking y celular
+
+El audio arranca con una interacción del jugador y se pausa al ocultar la página o salir de la partida. Incluye ambiente del lago y melodías suaves, lanzamiento, agua, picada, enganche, pulsos de minijuego, captura, fallo, compras, monedas y equipamiento. Ajustes permite cambiar volumen, silenciar todo o desactivar la música conservando los efectos. El sonido se genera localmente con Web Audio y comparte la salida general de p5.sound; no descarga grabaciones.
+
+El Ranking (botón 🏆 o R) muestra el top 20 por dinero actual o capturas acumuladas. Comprar reduce el saldo clasificado; vender lo aumenta. Las capturas cuentan aunque el pez se venda o se libere por mochila llena. La tabla se actualiza al abrir o pulsar Actualizar y destaca tu puesto, incluso fuera del top 20. Solo participan las cuentas; el invitado puede consultar la tabla. Se publica el nombre de jugador y las puntuaciones, sin correos, UUID, contraseñas ni inventarios.
+
+Los botones táctiles se activan automáticamente en pantallas táctiles y también pueden activarse desde Ajustes. Joystick analógico con velocidad gradual para moverse, Saltar, arrastre a la derecha para mirar, Lanzar/Recoger y menús de mochila, tienda, guía, especies y ranking. Se puede jugar en vertical u horizontal; la calidad inicial del celular es Baja si no había ajustes guardados. No se usa captura del cursor en modo táctil.
+
+| Minijuego | Control táctil |
+|---|---|
+| Anillo | Pulsar cuando el anillo llegue a la zona |
+| Brújula | Analógico a los lados y mantener o soltar Frenar |
+| Ritmo | A/S/D, mantener notas largas y tocar dos pistas simultáneas |
+| Esquiva | Analógico en cualquier dirección |
+| Multietapa | Cambia los controles según la fase; Acción para el evento de reacción |
+
+Los minijuegos mantienen un espacio de dibujo consistente al girar el teléfono. La enciclopedia táctil usa un selector y conserva las fichas bloqueadas hasta descubrirlas. Los controles se sueltan al abrir un panel, perder foco o cancelar un toque.
+
+Las barras de desplazamiento están ocultas en todas las pantallas; el contenido largo sigue desplazándose con el dedo, la rueda o el teclado. El analógico vuelve al centro al soltar, cancelar el gesto, girar el teléfono o abrir un panel.

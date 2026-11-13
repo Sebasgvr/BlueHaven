@@ -85,7 +85,7 @@ async function venderPez(indice) {
       const data = await apiJuego("vender", { inventario_id: pez.id });
       precio = data.precio; dinero = Number(data.dinero);
     } else dinero += precio;
-    inventario.splice(inventario.indexOf(pez), 1);
+    inventario.splice(inventario.indexOf(pez), 1);window.AudioJuego?.efecto('monedas');
     mostrarMensaje("Vendiste " + pez.nombre + " por $" + precio);
     guardarProgresoLocal(); estadoGuardado("Progreso guardado");
   } catch (e) { estadoGuardado(e.message); if(typeof mensajeComercio==='function')mensajeComercio(e.message,true); }
@@ -100,7 +100,7 @@ async function venderTodos() {
       const data = await apiJuego("vender_todos"); total = data.total; dinero = Number(data.dinero);
     } else dinero += total;
     inventario.length = 0;
-    mostrarMensaje("Vendiste todo por $" + total);
+    window.AudioJuego?.efecto("monedas");mostrarMensaje("Vendiste todo por $" + total);
     guardarProgresoLocal(); estadoGuardado("Progreso guardado");
   } catch (e) { estadoGuardado(e.message); if(typeof mensajeComercio==='function')mensajeComercio(e.message,true); }
   finally { operacionInventario = false; }

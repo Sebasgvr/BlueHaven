@@ -73,10 +73,11 @@
             <span>Usuario</span>
             <input
               type="text"
-              id="reg-usuario"
+              id="reg-usuario" maxlength="50"
               autocomplete="username"
               required
             />
+            <small>Nombre visible en el ranking público.</small>
           </label>
           <label class="campo">
             <span>Email</span>
@@ -96,11 +97,12 @@
           <button type="submit" class="boton-principal">Crear mi cuenta</button>
           <p class="error" id="reg-error"></p>
         </form>
+        <details class="dominios-cuentas"><summary>Correos permitidos y reglas</summary><p>Usá un proveedor de la lista. No se admiten palabras ofensivas en el nombre o en el correo.</p><p id="dominios-permitidos"></p></details>
       </div>
     </div>
 
-    <div id="barra-juego" hidden><button id="boton-ajustes" type="button">⚙ Ajustes</button><span id="estado-guardado" aria-live="polite"></span></div>
-    <dialog id="ajustes"><form method="dialog"><h2>Ajustes del juego</h2><label>Calidad gráfica <select id="calidad-grafica"><option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option></select></label><label><input type="checkbox" id="mostrar-fps"> Mostrar rendimiento</label><label for="volumen-general">Volumen <output id="valor-volumen">100%</output></label><input id="volumen-general" type="range" min="0" max="100" step="1"><label><input id="silenciar-audio" type="checkbox"> Silenciar</label><p id="detalle-rendimiento"></p><p>WASD: moverte · Mouse: mirar · F: pescar · I: mochila · L: especies · Q: guía · Esc: ajustes · P: liberar/capturar cursor</p><button id="cerrar-ajustes">Volver al juego</button><button id="boton-logout" type="button" style="display:none">Cerrar sesión</button></form></dialog>
+    <div id="barra-juego" hidden><button id="boton-ajustes" type="button">⚙ Ajustes</button><button id="boton-ranking" type="button">🏆 Ranking</button><span id="estado-guardado" aria-live="polite"></span></div>
+    <dialog id="ajustes"><form method="dialog"><h2>Ajustes del juego</h2><label>Calidad gráfica <select id="calidad-grafica"><option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option></select></label><label><input type="checkbox" id="mostrar-fps"> Mostrar rendimiento</label><label for="volumen-general">Volumen <output id="valor-volumen">100%</output></label><input id="volumen-general" type="range" min="0" max="100" step="1"><label><input id="silenciar-audio" type="checkbox"> Silenciar</label><label><input id="musica-ambiente" type="checkbox"> Música ambiente</label><label><input id="activar-tactil" type="checkbox"> Controles táctiles</label><p id="detalle-rendimiento"></p><p>WASD: moverte · Mouse: mirar · F: pescar · I: mochila · L: especies · Q: guía · Esc: ajustes · P: liberar/capturar cursor</p><button id="cerrar-ajustes">Volver al juego</button><button id="boton-logout" type="button" style="display:none">Cerrar sesión</button></form></dialog>
     <!-- Chatbot: guía de pesca conectada a la base de datos -->
     <button
       id="boton-chat"
@@ -147,6 +149,7 @@
 
     <script src="config.js"></script>
     <script src="libraries/supabase.min.js"></script>
+    <script src="filtros-cuentas.js"></script>
     <script src="base-datos.js"></script>
     <script src="auth.js"></script>
     <script src="catalogo.js"></script>
@@ -166,6 +169,9 @@
     <script src="entorno.js"></script>
     <script src="rendimiento.js"></script>
     <script src="comercio.js"></script>
+    <script src="audio.js"></script>
+    <script src="ranking.js"></script>
+    <script src="controles-tactiles.js"></script>
     <script src="sketch.js"></script>
   </body>
 </html>

@@ -82,19 +82,20 @@ class Jugador {
     if (interfazBloqueada()) return;
 
     // Detectar tecla Control (keyCode 17) para agacharse
-    this.agachado = keyIsDown(17) || keyIsDown(CONTROL);
+    this.agachado = teclaJuegoPresionada(17) || teclaJuegoPresionada(CONTROL);
     const objetivoAgachado = this.agachado ? 1 : 0;
     this.factorAgachado = THREE.MathUtils.lerp(this.factorAgachado, objetivoAgachado, 0.2);
 
     // Bloquear movimiento mientras la enciclopedia está abierta
     if (typeof ENCICLOPEDIA !== 'undefined' && ENCICLOPEDIA.abierta) return;
 
-    if (keyIsDown(87)) this.mover(1);
-    if (keyIsDown(83)) this.mover(-1);
-    if (keyIsDown(65)) this.moverLateral(-1);
-    if (keyIsDown(68)) this.moverLateral(1);
-    if (keyIsDown(UP_ARROW)) this.mirar(1);
-    if (keyIsDown(DOWN_ARROW)) this.mirar(-1);
+    const analogico=window.ControlTactil?.analogico||{x:0,y:0};
+    let avance=(teclaJuegoPresionada(87)?1:0)-(teclaJuegoPresionada(83)?1:0)-analogico.y;
+    let lateral=(teclaJuegoPresionada(68)?1:0)-(teclaJuegoPresionada(65)?1:0)+analogico.x;
+    const magnitud=Math.hypot(avance,lateral);if(magnitud>1){avance/=magnitud;lateral/=magnitud;}
+    if(avance)this.mover(avance);if(lateral)this.moverLateral(lateral);
+    if (teclaJuegoPresionada(UP_ARROW)) this.mirar(1);
+    if (teclaJuegoPresionada(DOWN_ARROW)) this.mirar(-1);
 
     const dt = Math.min(deltaTime / 1000, 0.05);
     this.velocidadSalto -= 900 * dt;

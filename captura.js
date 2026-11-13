@@ -70,10 +70,12 @@ class SistemaCaptura {
       this.estado = "mostrando_resultado";
       this.timerFase = 0.8;
     } else if (this.estado === "tiron_fuerte") {
+      window.AudioJuego?.efecto('enganchar');
       this.resultadoEnganche = this.timerEnganche < 0.2 ? "perfecto" : "bueno";
       this.estado = "mostrando_resultado";
       this.timerFase = 0.6;
     } else if (this.estado === "lucha") {
+      window.AudioJuego?.efecto("pulso");
       if (this.minijuego) this.minijuego.presionarBoton(entrada);
     } else if (this.estado === "decidiendo_riesgo") {
       if (this.timerFase <= 0) this.elegirRiesgo(false);
@@ -93,6 +95,7 @@ class SistemaCaptura {
   presionarTecla(tecla, keyCode) {
     if (this.estado === "lucha" && this.minijuego) {
       if (this.minijuego.aceptaTeclas()) {
+        window.AudioJuego?.efecto("pulso");
         this.minijuego.presionarBoton({ tecla, keyCode });
       }
     }
@@ -129,6 +132,7 @@ class SistemaCaptura {
       case "esperando_mordida":
         this.timerEspera -= dt;
         if (this.timerEspera <= 0) {
+          window.AudioJuego?.efecto('picada');
           const calidad = calidadDe(this.pez);
           if (this.pez && this.pez.rareza <= 1 && calidad.id === "comun") {
             this._crearMinijuego();
@@ -182,6 +186,7 @@ class SistemaCaptura {
               this._irADecision();
             }
           } else {
+            window.AudioJuego?.efecto("fallo");
             this.estado = "esperando_mordida";
             this.timerEspera = random(6, 14);
           }
@@ -197,6 +202,7 @@ class SistemaCaptura {
           this.minijuego.actualizar(dt);
           if (this.minijuego.resultado) {
             this.estado = this.minijuego.resultado;
+            if(this.estado!=='capturado')window.AudioJuego?.efecto('fallo');
             this.timerFase = this.estado === "pez_escapado" ? 2.0 : 2.5;
             this.minijuego = null;
           }
@@ -232,7 +238,7 @@ class SistemaCaptura {
     if (!this.pez.mecanicasActivas) this.pez.mecanicasActivas = [];
     const ClaseMinijuego =
       MINIJUEGOS_POR_RAREZA[this.pez.rareza] || MinijuegoBrújula;
-    this.minijuego = new ClaseMinijuego(this.pez);
+    this.minijuego = enEspacioPesca(()=>new ClaseMinijuego(this.pez));
     this.estado = "lucha";
   }
 

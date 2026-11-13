@@ -47,7 +47,7 @@ async function comprarProducto(id) {
       dinero-=p.precio;objetosPesca[id]=cantidadObjeto(id)+p.unidades;
       sincronizarEquipoVisual();guardarProgresoLocal();
     } else aplicarEstadoEquipo(await apiJuego('comprar_producto',{producto_id:id,token:crypto.randomUUID()}));
-    mostrarMensaje('Compraste '+p.nombre+'.');mensajeComercio('Compraste '+p.nombre+'. Equipalo para usar su efecto.');
+    window.AudioJuego?.efecto('compra');mostrarMensaje('Compraste '+p.nombre+'.');mensajeComercio('Compraste '+p.nombre+'. Equipalo para usar su efecto.');
   } catch(e) { mensajeComercio(e.message,true); }
   finally { operacionEquipo=false;renderizarComercio(); }
 }
@@ -60,7 +60,7 @@ async function equiparProducto(id) {
       if (!cantidadObjeto(id)) throw new Error('Primero comprá este artículo.');
       equipoPesca[p.categoria]=id;sincronizarEquipoVisual();guardarProgresoLocal();
     } else aplicarEstadoEquipo(await apiJuego('equipar_producto',{producto_id:id}));
-    mensajeComercio('Equipaste '+p.nombre+'.');
+    window.AudioJuego?.efecto('equipar');mensajeComercio('Equipaste '+p.nombre+'.');
   } catch(e) { mensajeComercio(e.message,true); }
   finally { operacionEquipo=false;renderizarComercio(); }
 }

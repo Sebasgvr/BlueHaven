@@ -23,6 +23,8 @@ function bloquearBotones(valor) {
 }
 async function entrarConSesion(sesion, errorEl) {
   if (entrando || document.body.classList.contains('jugando')) return;
+  try { FiltrosCuentas.validarEmail(sesion.user.email); }
+  catch(err) { await BaseDatos.salir();if(errorEl)errorEl.textContent=err.message;return; }
   entrando = true; bloquearBotones(true);
   window.partidaId++;
   window.modoInvitado = false;
@@ -32,10 +34,11 @@ async function entrarConSesion(sesion, errorEl) {
 }
 formLogin.addEventListener('submit', async e => {
   e.preventDefault();
-  capturarCursor();
   const errorEl = document.getElementById('login-error'); errorEl.textContent = '';
   bloquearBotones(true);
   try {
+    FiltrosCuentas.validarEmail(document.getElementById('login-usuario').value);
+    capturarCursor();
     const sesion = await BaseDatos.entrar(document.getElementById('login-usuario').value.trim(), document.getElementById('login-password').value);
     await entrarConSesion(sesion, errorEl);
   } catch (err) { errorEl.textContent = err.message; }
@@ -43,10 +46,12 @@ formLogin.addEventListener('submit', async e => {
 });
 formRegistro.addEventListener('submit', async e => {
   e.preventDefault();
-  capturarCursor();
   const errorEl = document.getElementById('reg-error'); errorEl.textContent = '';
   bloquearBotones(true);
   try {
+    FiltrosCuentas.validarEmail(document.getElementById('reg-email').value);
+    FiltrosCuentas.validarNombre(document.getElementById('reg-usuario').value);
+    capturarCursor();
     const datos = await BaseDatos.registrar(document.getElementById('reg-usuario').value.trim(), document.getElementById('reg-email').value.trim(), document.getElementById('reg-password').value);
     if (datos.session) await entrarConSesion(datos.session, errorEl);
     else {
@@ -65,7 +70,7 @@ async function ocultarAuthYArrancar(errorEl) {
     await iniciarJuego();
     pantallaAuth.style.display = 'none'; botonLogout.style.display = 'block';
     cursorLibre=false;capturarCursor();
-    document.body.classList.add('jugando'); document.getElementById('barra-juego').hidden = false;
+    document.body.classList.add('jugando'); window.AudioJuego?.iniciar(); document.getElementById('barra-juego').hidden = false;
     botonLogout.textContent = window.modoInvitado ? 'Salir de invitado' : 'Cerrar sesión';
   } catch (err) {
     if (errorEl) errorEl.textContent = err.message || 'No se pudo cargar tu partida. Reintentá.';
@@ -74,6 +79,10 @@ async function ocultarAuthYArrancar(errorEl) {
 }
 function volverAlAcceso(mensaje = '') {
   window.partidaId++;
+  window.AudioJuego?.pausar();
+  window.ControlTactil?.soltarTodo();
+  document.getElementById('ranking')?.close();
+  document.getElementById('libro-movil')?.close();
   if (typeof noLoop === 'function' && window.juegoPreparado) noLoop();
   if (document.pointerLockElement) document.exitPointerLock();
   if (typeof cerrarChat === 'function') cerrarChat();
@@ -119,3 +128,11 @@ document.getElementById('boton-invitado').addEventListener('click', async () => 
     if (!window.modoInvitado) document.getElementById('login-error').textContent = err.message;
   }
 })();
+
+for(const campo of ['login-usuario','reg-email','reg-usuario']) {
+  const entrada=document.getElementById(campo);
+  entrada.addEventListener('input',()=>entrada.setCustomValidity(''));
+  entrada.addEventListener('blur',()=>{try{if(entrada.value)(campo==='reg-usuario'?FiltrosCuentas.validarNombre: FiltrosCuentas.validarEmail)(entrada.value);entrada.setCustomValidity('');}catch(err){entrada.setCustomValidity(err.message);}});
+}
+
+document.getElementById('dominios-permitidos').textContent=FiltrosCuentas.dominios.join(' · ');

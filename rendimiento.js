@@ -4,12 +4,12 @@ const OPCIONES_GRAFICAS = {
   media: { escala: 0.85, fps: 60 },
   alta: { escala: 1, fps: 60 },
 };
-let opcionesGraficas = { calidad: 'media', fps: false, volumen: 1, silencio: false };
+let opcionesGraficas = { calidad: 'media', fps: false, volumen: 1, silencio: false, musica:true };
 try { Object.assign(opcionesGraficas, JSON.parse(localStorage.getItem('BLUEHAVEN_AJUSTES') || '{}')); } catch (_) {}
 let muestrasFPS = [];
 let ultimoIndicador = 0;
 function interfazBloqueada() {
-  return !document.body.classList.contains('jugando') || !!window.chatAbierto || !!document.getElementById('ajustes')?.open || !!document.getElementById('comercio')?.open || !!document.getElementById('tarjeta-captura')?.open;
+  return !document.body.classList.contains('jugando') || !!window.chatAbierto || !!document.querySelector('dialog[open]');
 }
 function aplicarCalidadGrafica() {
   const config = OPCIONES_GRAFICAS[opcionesGraficas.calidad] || OPCIONES_GRAFICAS.media;
@@ -63,7 +63,7 @@ hudRendimiento.id = 'rendimiento-hud';
 document.body.appendChild(hudRendimiento);
 let cursorLibre = false;
 function capturarCursor() {
-  if (typeof renderizador3D === 'undefined' || !renderizador3D || document.pointerLockElement) return;
+  if (window.ControlTactil?.activo || typeof renderizador3D === 'undefined' || !renderizador3D || document.pointerLockElement) return;
   try { const pedido=renderizador3D.domElement.requestPointerLock(); if(pedido?.catch)pedido.catch(()=>{}); } catch (_) {}
 }
 function abrirAjustes() {
@@ -90,11 +90,13 @@ document.getElementById('calidad-grafica').value=opcionesGraficas.calidad;
 document.getElementById('mostrar-fps').checked=opcionesGraficas.fps;
 document.getElementById('volumen-general').value=opcionesGraficas.volumen*100;
 document.getElementById('silenciar-audio').checked=opcionesGraficas.silencio;
+document.getElementById('musica-ambiente').checked=opcionesGraficas.musica;
 function guardarAjustes() {
   opcionesGraficas.calidad=document.getElementById('calidad-grafica').value;
   opcionesGraficas.fps=document.getElementById('mostrar-fps').checked;
   opcionesGraficas.volumen=Number(document.getElementById('volumen-general').value)/100;
   opcionesGraficas.silencio=document.getElementById('silenciar-audio').checked;
+  opcionesGraficas.musica=document.getElementById('musica-ambiente').checked;
   localStorage.setItem('BLUEHAVEN_AJUSTES',JSON.stringify(opcionesGraficas));
   aplicarAudio();aplicarCalidadGrafica();
 }
@@ -115,6 +117,7 @@ document.addEventListener('keydown',e=>{
     if(ajustes.open)ajustes.close();
     else if(document.getElementById('tarjeta-captura')?.open)cerrarTarjetaCaptura();
     else if(tienda?.open)cerrarComercio();
+    else if(document.querySelector('dialog[open]'))document.querySelector('dialog[open]').close();
     else if(window.chatAbierto)cerrarChat();
     else if(ENCICLOPEDIA.abierta)cerrarEnciclopedia();
     else {cancelarPesca();abrirAjustes();}

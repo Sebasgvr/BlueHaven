@@ -28,9 +28,11 @@
   }
   window.BaseDatos = {
     async entrar(email, password) {
+      email=FiltrosCuentas.validarEmail(email);
       return verificar(await obtenerCliente().auth.signInWithPassword({ email, password })).session;
     },
     async registrar(usuario, email, password) {
+      email=FiltrosCuentas.validarEmail(email);usuario=FiltrosCuentas.validarNombre(usuario);
       return verificar(await obtenerCliente().auth.signUp({
         email, password, options: { data: { usuario }, emailRedirectTo: location.origin + location.pathname }
       }));
@@ -40,6 +42,7 @@
     },
     async salir() { verificar(await obtenerCliente().auth.signOut()); },
     async estado() { return rpc('bh_estado'); },
+    async ranking(criterio='dinero') { return rpc('bh_ranking',{p_criterio:criterio}); },
     async estadoTienda() { return rpc('bh_tienda_estado'); },
     async operar(ruta, datos) {
       switch (ruta) {

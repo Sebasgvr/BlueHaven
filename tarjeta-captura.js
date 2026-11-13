@@ -21,6 +21,7 @@ document.getElementById('captura-continuar').addEventListener('click',()=>{cerra
 tarjetaCaptura.addEventListener('cancel',e=>{e.preventDefault();cerrarTarjetaCaptura();});
 tarjetaCaptura.addEventListener('close',()=>{if(document.body.classList.contains('jugando'))cancelarPesca();});
 async function mostrarTarjetaCaptura(ejemplar) {
+  window.AudioJuego?.efecto('captura');
   const pez={...CATALOGO_ESPECIES.find(p=>p.nombre===ejemplar.nombre),...ejemplar};
   const calidad=calidadDe(pez),partida=window.partidaId,llena=inventario.length>=MAX_RANURAS;
   const texto=(id,valor)=>document.getElementById(id).textContent=valor||'Sin datos';

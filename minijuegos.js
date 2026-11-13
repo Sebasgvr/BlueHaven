@@ -233,8 +233,9 @@ class MinijuegoBrújula extends MinijuegoPesca {
     }
 
     let control = 0;
-    if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) control -= 1;
-    if (keyIsDown(RIGHT_ARROW) || keyIsDown(68)) control += 1;
+    if (teclaJuegoPresionada(LEFT_ARROW) || teclaJuegoPresionada(65)) control -= 1;
+    if (teclaJuegoPresionada(RIGHT_ARROW) || teclaJuegoPresionada(68)) control += 1;
+    control=constrain(control+(window.ControlTactil?.analogico.x||0),-1,1);
     this.velocidadAngular += control * this.torqueJugador * dt;
 
     if (this.frenando) this.velocidadAngular *= 0.9;
@@ -1427,14 +1428,12 @@ class MinijuegoEsquiva extends MinijuegoPesca {
 
     let dx = 0;
     let dy = 0;
-    if (keyIsDown(87) || keyIsDown(UP_ARROW)) dy -= 1;
-    if (keyIsDown(83) || keyIsDown(DOWN_ARROW)) dy += 1;
-    if (keyIsDown(65) || keyIsDown(LEFT_ARROW)) dx -= 1;
-    if (keyIsDown(68) || keyIsDown(RIGHT_ARROW)) dx += 1;
-    if (dx !== 0 && dy !== 0) {
-      dx *= 0.7071;
-      dy *= 0.7071;
-    }
+    if (teclaJuegoPresionada(87) || teclaJuegoPresionada(UP_ARROW)) dy -= 1;
+    if (teclaJuegoPresionada(83) || teclaJuegoPresionada(DOWN_ARROW)) dy += 1;
+    if (teclaJuegoPresionada(65) || teclaJuegoPresionada(LEFT_ARROW)) dx -= 1;
+    if (teclaJuegoPresionada(68) || teclaJuegoPresionada(RIGHT_ARROW)) dx += 1;
+    dx+=window.ControlTactil?.analogico.x||0;dy+=window.ControlTactil?.analogico.y||0;
+    const magnitud=Math.hypot(dx,dy);if(magnitud>1){dx/=magnitud;dy/=magnitud;}
     const velocidadMov = 340;
     this.jugX = constrain(
       this.jugX + dx * velocidadMov * dt,

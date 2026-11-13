@@ -8,6 +8,7 @@ const ENCICLOPEDIA = {
 };
 
 function abrirEnciclopedia() {
+  if(window.ControlTactil?.activo){abrirLibroMovil();return;}
   ENCICLOPEDIA.abierta = true;
   ENCICLOPEDIA.hover = -1;
   ENCICLOPEDIA.hoverBoton = "";

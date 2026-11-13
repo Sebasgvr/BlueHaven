@@ -16,7 +16,8 @@
     "test:shop": "node tests/shop-browser.cjs",
     "test:settings": "node tests/settings-browser.cjs",
     "test:captures": "node tests/capture-browser.cjs",
-    "test:forest": "node tests/forest-browser.cjs"
+    "test:forest": "node tests/forest-browser.cjs",
+    "test:mobile": "node tests/mobile-browser.cjs"
   },
   "engines": {
     "node": ">=20"

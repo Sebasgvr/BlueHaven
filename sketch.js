@@ -140,8 +140,8 @@ function draw() {
   renderizador3D.render(escena3D, camara3D);
 
   if (!guiaActiva && !interfazBloqueada()) {
-    sistemaCaptura.actualizar();
-    sistemaCaptura.dibujar();
+    enEspacioPesca(()=>sistemaCaptura.actualizar());
+    enEspacioPesca(()=>sistemaCaptura.dibujar(),true);
 
     if (menuTienda !== "cerrado") {
       if (menuTienda === "tienda") dibujarPanelVenta();
@@ -163,6 +163,7 @@ function draw() {
 
   // La bienvenida siempre se dibuja encima de todo
   dibujarBienvenida();
+  actualizarControlesTactiles();
 }
 
 function mouseMoved(evento) {
@@ -359,21 +360,8 @@ function keyPressed() {
     }
     return false;
   }
-  if (key === "f" || key === "F") {
-    if (sistemaCaptura.estado === "decidiendo_riesgo") {
-      sistemaCaptura.elegirRiesgo(true);
-      return false;
-    }
-    if (sistemaCaptura.estado === "esperando_mordida" && anzueloLanzado) {
-      sistemaCaptura.cancelar();
-      iniciarRecogidaAnzuelo();
-    } else if (sistemaCaptura.estado === "inactivo") {
-      if (estadoLanzamiento === "reposo" || estadoLanzamiento === "en_agua" || estadoLanzamiento === "esperando") {
-        lanzarORecogerCaña();
-      }
-    }
-    return false;
-  }
+  if (key === "f" || key === "F") { ejecutarAccionPesca();return false; }
+
   if (keyCode === 32) {
     if (sistemaCaptura.estado === "inactivo") {
       jugador.saltar();
@@ -389,6 +377,22 @@ function keyPressed() {
       return false;
     }
   }
+}
+
+function ejecutarAccionPesca(){
+    if (sistemaCaptura.estado === "decidiendo_riesgo") {
+      sistemaCaptura.elegirRiesgo(true);
+      return false;
+    }
+    if (sistemaCaptura.estado === "esperando_mordida" && anzueloLanzado) {
+      sistemaCaptura.cancelar();
+      iniciarRecogidaAnzuelo();
+    } else if (sistemaCaptura.estado === "inactivo") {
+      if (estadoLanzamiento === "reposo" || estadoLanzamiento === "en_agua" || estadoLanzamiento === "esperando") {
+        lanzarORecogerCaña();
+      }
+    }
+
 }
 
 function keyReleased() {
@@ -407,6 +411,8 @@ function keyReleased() {
 }
 
 function controlarClicEscena(evento) {
+  // En teléfonos los gestos los administra el controlador táctil, no el clic de escritorio.
+  if(window.ControlTactil?.activo)return;
   if (interfazBloqueada()) return;
   // Cerrar la pantalla de bienvenida con clic
   if (bienvenidaActiva()) {
@@ -514,6 +520,7 @@ async function lanzarORecogerCaña() {
 
 function iniciarLanzamientoAnzuelo(destino, enAgua = true) {
   if (!destino) return;
+  window.AudioJuego?.efecto('lanzar');
   destinoPescaMundo.copy(destino);
   // Sin animación de mirar hacia abajo: la cámara no se mueve al lanzar
   ajusteMiradaPesca = null;
@@ -644,6 +651,7 @@ function actualizarLanzamientoAnzuelo() {
     if (progresoLanzamiento >= 1) {
       if (lanzamientoCaeEnAgua) {
         estadoLanzamiento = "en_agua";
+        window.AudioJuego?.efecto("agua");
         posicionAnzueloMundo.copy(destinoPescaMundo);
         faseSalpicadura = 1;
         esperaMordida = random(2, 6) * efectosLance.espera;
