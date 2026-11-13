@@ -1,0 +1,11 @@
+import {NodeIO} from '@gltf-transform/core';
+import {ALL_EXTENSIONS} from '@gltf-transform/extensions';
+import {dedup,prune,textureCompress} from '@gltf-transform/functions';
+import sharp from 'sharp';
+const input=process.argv[2];
+if (!input) throw new Error('Uso: npm run optimize:shop -- entrada.glb [salida.glb]');
+const output=process.argv[3] || 'models/fishing_house/tiendaPesca.glb';
+const io=new NodeIO().registerExtensions(ALL_EXTENSIONS);
+const doc=await io.read(input);
+await doc.transform(dedup(),textureCompress({encoder:sharp,targetFormat:'webp',resize:[512,512],quality:80}),prune());
+await io.write(output,doc);
