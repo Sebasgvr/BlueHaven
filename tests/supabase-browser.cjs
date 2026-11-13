@@ -1,0 +1,50 @@
+const {chromium} = require('playwright');
+const assert = require('node:assert/strict');
+const url = process.env.SUPABASE_TEST_URL;
+const key = process.env.SUPABASE_TEST_ANON_KEY;
+if (!url || !key || !['localhost','127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Este test usa Supabase local, con emails autoconfirmados.');
+(async () => {
+  const browser = await chromium.launch({...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}), args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+  try {
+    const page = await browser.newPage({viewport:{width:800,height:450}});
+    page.setDefaultTimeout(60000);
+    const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+    await page.route('**/config.js',r=>r.fulfill({contentType:'application/javascript',body:'window.BLUEHAVEN_CONFIG='+JSON.stringify({supabaseUrl:url,supabaseKey:key})}));
+    await page.goto(process.env.TEST_URL || 'http://127.0.0.1:8080');
+    await page.waitForFunction(()=>window.juegoPreparado);
+    const email='browser_'+Date.now()+'@example.com';
+    await page.click('#tab-registro');
+    await page.fill('#reg-usuario','Pescador de prueba'); await page.fill('#reg-email',email); await page.fill('#reg-password','test-pass-123');
+    await page.locator('#form-registro button[type=submit]').click();
+    await page.waitForFunction(()=>document.body.classList.contains('jugando'));
+    const inicial=await page.evaluate(()=>({guest:window.modoInvitado,catalogo:catalogoEspecies.length,dinero}));
+    assert.deepEqual(inicial,{guest:false,catalogo:9,dinero:0});
+    const economia=await page.evaluate(async()=>{
+      const at=CATALOGO_ESPECIES.find(p=>p.nombre==='Atún');
+      await agregarPez({...at,calidadId:'legendario',multiplicadorCalidad:5.5,capturaRiesgo:true,precio:0});
+      const precio=inventario[0].precio; await venderTodos(); await comprarCañaTienda();
+      return {precio,dinero,tieneCañaBambu};
+    });
+    assert.deepEqual(economia,{precio:924,dinero:774,tieneCañaBambu:true});
+    await page.reload(); await page.waitForFunction(()=>document.body.classList.contains('jugando'));
+    assert.equal(await page.evaluate(()=>dinero),774); assert.equal(await page.evaluate(()=>tieneCañaBambu),true);
+    assert.equal(await page.evaluate(()=>inventario.length),0);
+    if(!await page.locator('#ajustes').evaluate(d=>d.open))await page.keyboard.press('Escape');await page.waitForFunction(()=>document.getElementById('ajustes').open);await page.click('#boton-logout'); await page.waitForFunction(()=>!document.body.classList.contains('jugando'));
+    await page.click('#boton-invitado'); await page.waitForFunction(()=>document.body.classList.contains('jugando'));
+    assert.equal(await page.evaluate(()=>dinero),0);
+    if(!await page.locator('#ajustes').evaluate(d=>d.open))await page.keyboard.press('Escape');await page.waitForFunction(()=>document.getElementById('ajustes').open);await page.click('#boton-logout'); await page.waitForFunction(()=>!document.body.classList.contains('jugando'));
+    await page.fill('#login-usuario',email); await page.fill('#login-password','test-pass-123');
+    await page.locator('#form-login button[type=submit]').click(); await page.waitForFunction(()=>document.body.classList.contains('jugando'));
+    assert.equal(await page.evaluate(()=>dinero),774);
+    await page.evaluate(async()=>{await comprarProducto('precision');await equiparProducto('precision');await comprarProducto('lombriz');await equiparProducto('lombriz');efectosLance=await prepararEquipoLance()});
+    assert.equal(await page.evaluate(()=>efectosLance.enganche),.15);
+    await page.reload();await page.waitForFunction(()=>document.body.classList.contains('jugando'));
+    assert.equal(await page.evaluate(()=>dinero),649);assert.equal(await page.evaluate(()=>objetosPesca.lombriz),4);assert.equal(await page.evaluate(()=>equipoPesca.anzuelo),'precision');assert.deepEqual(errors,[]);
+    await page.evaluate(()=>{BIENVENIDA.activa=false;BIENVENIDA._saliendo=false;sistemaCaptura.iniciar(CATALOGO_ESPECIES[0]);sistemaCaptura.estado='capturado';sistemaCaptura.actualizar()});
+    await page.waitForFunction(()=>document.getElementById('tarjeta-captura').open&&!guardandoTarjeta);
+    assert.match(await page.locator('#captura-guardado').innerText(),/guardada/);
+    await page.click('#captura-continuar');await page.reload();await page.waitForFunction(()=>document.body.classList.contains('jugando'));
+    assert.equal(await page.evaluate(()=>inventario.length),1);assert.equal(await page.evaluate(()=>CATALOGO_ESPECIES.every(p=>!!spritesPeces[p.sprite])),true);
+    console.log('Navegador Supabase: registro, economía, restauración de sesión, logout, invitado y login OK');
+  } finally { await browser.close(); }
+})().catch(e=>{console.error(e);process.exitCode=1});
