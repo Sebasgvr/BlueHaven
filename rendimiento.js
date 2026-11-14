@@ -6,6 +6,20 @@ const OPCIONES_GRAFICAS = {
 };
 let opcionesGraficas = { calidad: 'media', fps: false, volumen: 1, silencio: false, musica:true };
 try { Object.assign(opcionesGraficas, JSON.parse(localStorage.getItem('BLUEHAVEN_AJUSTES') || '{}')); } catch (_) {}
+// Una unidad equivale a 1/64 de celda; evita perder precisión en todo el mapa.
+const CERCA_CAMARA_MUNDO = 1;
+function configurarTexturaTerreno(textura) {
+  const imagen=textura.image,webgl2=renderizador3D.capabilities.isWebGL2;
+  const mipmaps=webgl2||(THREE.MathUtils.isPowerOfTwo(imagen.width)&&THREE.MathUtils.isPowerOfTwo(imagen.height));
+  // Mantener píxeles definidos de cerca; suavizar solo al reducir la textura.
+  textura.magFilter=THREE.NearestFilter;
+  textura.minFilter=mipmaps?THREE.NearestMipmapLinearFilter:THREE.LinearFilter;
+  textura.generateMipmaps=mipmaps;
+  // Algunos drivers suavizan también la ampliación al forzar anisotropía.
+  textura.anisotropy=1;
+  textura.needsUpdate=true;
+  return textura;
+}
 let muestrasFPS = [];
 let ultimoIndicador = 0;
 function interfazBloqueada() {

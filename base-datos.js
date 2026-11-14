@@ -43,7 +43,9 @@
     async salir() { verificar(await obtenerCliente().auth.signOut()); },
     async estado() { return rpc('bh_estado'); },
     async sala(accion,codigo,cliente) { return rpc('bh_sala',{p_accion:accion,p_codigo:codigo||'',p_cliente:cliente}); },
-    async chatSala(cliente,texto=null,token=null) { return rpc('bh_sala_chat',{p_cliente:cliente,p_texto:texto,p_token:token}); },
+    async chatSala(cliente,texto=null,token=null) {
+      if(texto!==null&&FiltrosCuentas.contieneOfensas(texto))throw new Error('El mensaje contiene palabras no permitidas.');
+      return rpc('bh_sala_chat',{p_cliente:cliente,p_texto:texto,p_token:token}); },
     async canalSala(nombre,yo) {
       const c=obtenerCliente(); const sesion=verificar(await c.auth.getSession()).session;
       if(!sesion)throw new Error('Iniciá sesión para entrar a la sala.');
@@ -68,6 +70,7 @@
       }
     },
     async registrarPregunta(pregunta, respuesta) {
+      if(FiltrosCuentas.contieneOfensas(pregunta))throw new Error('Escribí tu pregunta sin insultos ni palabras ofensivas.');
       return rpc('bh_registrar_pregunta', { p_pregunta: pregunta, p_respuesta: respuesta });
     },
     escucharSesion(callback) {

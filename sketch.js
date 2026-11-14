@@ -686,7 +686,7 @@ function inicializarEscena3D() {
   camara3D = new THREE.PerspectiveCamera(
     58,
     windowWidth / windowHeight,
-    0.01,
+    CERCA_CAMARA_MUNDO,
     TAMAÑO_CELDA * 80,
   );
   camara3D.rotation.order = "YXZ";
@@ -1450,7 +1450,7 @@ function crearSuperficieLago() {
         tex.wrapS = THREE.ClampToEdgeWrapping;
         tex.wrapT = THREE.ClampToEdgeWrapping;
         tex.magFilter = THREE.NearestFilter;
-        tex.minFilter = THREE.NearestFilter;
+        configurarTexturaTerreno(tex);
         tex.repeat.set(1, 1);
         return tex;
       });
@@ -1463,7 +1463,7 @@ function crearSuperficieLago() {
     .catch((err) => {
       console.warn("Fallback carga textura agua:", err);
       const cargador = new THREE.TextureLoader();
-      texturaAgua = cargador.load("textures/mundo/Agua.gif");
+      texturaAgua = cargador.load("textures/mundo/Agua.gif", configurarTexturaTerreno);
       texturaAgua.wrapS = THREE.RepeatWrapping;
       texturaAgua.wrapT = THREE.RepeatWrapping;
       texturaAgua.magFilter = THREE.NearestFilter;
@@ -1959,7 +1959,7 @@ function obtenerMaterialBaldosa(clave) {
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.magFilter = THREE.NearestFilter;
-  tex.minFilter = THREE.NearestFilter;
+  configurarTexturaTerreno(tex);
 
   const mat = new THREE.MeshLambertMaterial({ map: tex });
   materialesSueloCache.set(clave, {

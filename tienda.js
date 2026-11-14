@@ -193,7 +193,7 @@ function puntoInteriorTienda() {
 function entrarALaTienda() {
   if(TIENDA.regreso)return true;
   const destino=puntoInteriorTienda();if(!destino)return false;
-  TIENDA.regreso={x:jugador.posicion.x,y:jugador.posicion.y,angulo:jugador.angulo,inclinacion:jugador.inclinacion};
+  TIENDA.regreso={x:jugador.posicion.x,y:jugador.posicion.y,angulo:jugador.angulo,inclinacion:jugador.inclinacion,alturaPiso:jugador.alturaPiso,alturaSalto:jugador.alturaSalto,velocidadSalto:jugador.velocidadSalto};
   jugador.posicion.set(destino);jugador.angulo=-Math.PI/2;jugador.inclinacion=0;
   jugador.alturaPiso=tiendaAlturaPiso(destino.x,destino.y,0);jugador.alturaSalto=0;
   return true;
@@ -201,5 +201,5 @@ function entrarALaTienda() {
 function salirDeLaTienda() {
   if(!TIENDA.regreso)return;
   const p=TIENDA.regreso;jugador.posicion.set(p.x,p.y);jugador.angulo=p.angulo;jugador.inclinacion=p.inclinacion;
-  jugador.alturaPiso=0;TIENDA.regreso=null;
+  jugador.alturaPiso=p.alturaPiso;jugador.alturaSalto=p.alturaSalto;jugador.velocidadSalto=p.velocidadSalto;TIENDA.regreso=null;
 }

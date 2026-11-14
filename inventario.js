@@ -114,7 +114,7 @@ function abrirMenuTienda() {
 function abrirMenuInventario() { abrirComercio('equipo'); }
 
 function cerrarMenu() {
-  if (typeof dialogoComercio!=='undefined' && dialogoComercio.open) dialogoComercio.close();
+  if (typeof dialogoComercio!=='undefined' && dialogoComercio.open) cerrarComercio();
   menuTienda = "cerrado";
 }
 

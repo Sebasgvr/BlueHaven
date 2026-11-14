@@ -76,6 +76,10 @@ function quitarCargando() {
 async function preguntar(texto) {
   texto = (texto || "").trim();
   if (!texto || chatEnviando) return;
+  if(FiltrosCuentas.contieneOfensas(texto)){
+    agregarMensaje('bot','Escribí tu pregunta sin insultos ni palabras ofensivas.');
+    inputChat.focus();return;
+  }
   chatEnviando = true;
   agregarMensaje("usuario", texto);
   mensajeCargando();

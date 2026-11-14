@@ -15,10 +15,15 @@ function abrirComercio(modo='tienda') {
   comercio.modo=modo;comercio.pagina=modo==='tienda'?'inicio':'comprar';comercio.mensaje='';
   menuTienda='comercio';renderizarComercio();dialogoComercio.showModal();
 }
-function cerrarComercio() { dialogoComercio.close();menuTienda='cerrado'; }
-dialogoComercio.addEventListener('close',()=>{menuTienda='cerrado'});
+function finalizarComercio() {
+  if(comercio.modo==='tienda')salirDeLaTienda();
+  menuTienda='cerrado';
+}
+function cerrarComercio() { finalizarComercio();dialogoComercio.close(); }
+// Un evento de cierre pendiente no debe afectar una tienda recién abierta.
+dialogoComercio.addEventListener('close',()=>{if(!dialogoComercio.open)finalizarComercio()});
 document.getElementById('comercio-explorar').addEventListener('click',cerrarComercio);
-document.getElementById('comercio-salir').addEventListener('click',()=>{cerrarComercio();salirDeLaTienda()});
+document.getElementById('comercio-salir').addEventListener('click',cerrarComercio);
 function cambiarPaginaComercio(pagina){comercio.pagina=pagina;comercio.mensaje='';renderizarComercio();}
 function renderizarComercio() {
   if(typeof dinero==='undefined')return;

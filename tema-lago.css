@@ -1,0 +1,63 @@
+/* Blue Haven · Lago, madera y luz. Cargar después de style.css. */
+@font-face{font-family:'BH Pixel';src:url('textures/fuentes/PressStart2P.ttf') format('truetype');font-display:swap;font-weight:400;font-style:normal}
+:root{
+ --bh-noche:#0c2635;--bh-panel:#153b46;--bh-agua:#28595d;--bh-junco:#387b6b;
+ --bh-crema:#f5e8ca;--bh-oro:#e9c47a;--bh-texto:#f4efdF;--bh-suave:#bed3c5;
+ --bh-madera:#533c30;--bh-veta:#785741;--bh-borde:#b18b57;--bh-tinta:#09202b;
+ --bh-fuente:system-ui,-apple-system,'Segoe UI',sans-serif;--bh-pixel:'BH Pixel',monospace;
+ --bh-tabla:repeating-linear-gradient(0deg,transparent 0 41px,#21180e26 42px,#e7c38b12 43px,transparent 45px),repeating-linear-gradient(176deg,#9b744412 0 2px,transparent 3px 12px),linear-gradient(135deg,#624735,#3e302b);
+}
+html,body,body *{font-family:var(--bh-fuente)}
+body{color:var(--bh-texto);background:var(--bh-noche)}
+body button,body input,body select,body textarea{font-family:var(--bh-fuente)}
+body button{transition:background-color .14s ease,border-color .14s ease,transform .12s ease,box-shadow .12s ease;-webkit-tap-highlight-color:#edcd8733}
+body :is(button,input,select,textarea,[role=button]):focus-visible{outline:3px solid var(--bh-oro);outline-offset:3px}
+body button:active:not(:disabled){transform:translateY(2px)}
+body :is(#ajustes,#ranking,#libro-movil,#comercio,#multijugador,#chat-sala,#instalar-app){color:var(--bh-texto);border:2px solid #83b49c;border-radius:14px;background:linear-gradient(145deg,#193f49,#102e3c);box-shadow:0 14px 40px #04131b88,inset 0 1px #d2edce26;font:14px/1.55 var(--bh-fuente)}
+body :is(#ajustes,#ranking,#libro-movil,#comercio,#multijugador,#chat-sala,#instalar-app) *{font-family:var(--bh-fuente)}
+body :is(#ajustes,#ranking,#libro-movil,#comercio,#multijugador,#chat-sala,#instalar-app)::backdrop{background:#061c27c9;backdrop-filter:none}
+body :is(#ajustes,#ranking,#libro-movil,#comercio,#multijugador,#chat-sala,#instalar-app) h2,body #cartel-ranking h2{font-family:var(--bh-pixel);font-size:14px;font-weight:400;line-height:1.8;color:var(--bh-oro);text-shadow:0 2px #081d29;overflow-wrap:anywhere}
+body :is(#ajustes,#ranking,#libro-movil,#comercio,#multijugador,#chat-sala,#instalar-app) small{color:var(--bh-suave)}
+body :is(#ajustes,#ranking,#libro-movil,#comercio,#multijugador,#chat-sala,#instalar-app) button,body :is(#boton-ajustes,#boton-multijugador,#boton-chat-sala),body #controles-tactiles button,body #captura-continuar{
+ min-height:44px;border:1px solid #84b697;border-bottom:3px solid #102e30;border-radius:8px;background:linear-gradient(#3b796a,#285a54);color:var(--bh-crema);box-shadow:inset 0 1px #c9edd72b,0 2px 0 #071d2866;font-weight:650;
+}
+body :is(#ajustes,#ranking,#libro-movil,#comercio,#multijugador,#chat-sala,#instalar-app) button:disabled{opacity:.48;cursor:default}
+body :is(#ajustes,#multijugador,#chat-sala,#instalar-app) :is(input:not([type=checkbox]):not([type=range]),select),body .campo input{box-sizing:border-box;border:1px solid #7ca88b;border-bottom:2px solid #82a892;border-radius:7px;background:#092633;color:var(--bh-crema);font-size:16px;min-height:44px}
+body input[type=checkbox],body input[type=range]{accent-color:#dfbf7c}
+body :is(#ajustes,#multijugador,#chat-sala,#instalar-app) :is(p,label){color:var(--bh-suave)}
+
+/* Acceso: el agua enmarca una ficha de viaje. */
+body #pantalla-auth{background:radial-gradient(ellipse at 50% 10%,#28565d 0%,#123847 45%,#081f2f 100%)}
+body .caja-auth{background:linear-gradient(145deg,#183f48f7,#0d2c3af7);border:2px solid #9cc7ac;border-radius:14px;box-shadow:0 14px 45px #04162188,inset 0 0 0 5px #aec7a70a;backdrop-filter:none;padding:24px 26px}
+body .marca{margin-bottom:16px}body .marca-icono{font-size:24px;margin:0 0 4px}body .marca-titulo{font-family:var(--bh-pixel);color:var(--bh-oro);font-size:16px;line-height:1.8;text-shadow:0 3px #071d2b}body .logo-juego{width:112px;height:56px;object-fit:contain;margin:5px 0 0;image-rendering:pixelated}body .marca-tagline{font-size:13px;color:var(--bh-crema);margin:4px 0 0}
+body .tabs{border-radius:8px;background:#092634;border:1px solid #739985;padding:4px;margin-bottom:16px;gap:4px}body .tab{border-radius:5px;color:var(--bh-suave);min-height:44px;font-weight:650;padding:8px 5px}body .tab.activo{background:#d9bd7f;color:#202b26;box-shadow:inset 0 1px #fff0c2}
+body .campo{color:var(--bh-crema);font-size:13px;gap:5px}body .campo small{color:var(--bh-suave);font-size:11px}body .form-auth{gap:12px}
+body .boton-principal{background:linear-gradient(#f1d391,#d5aa61);color:#27332e;border:1px solid #f5d899;border-bottom:3px solid #8b633e;box-shadow:inset 0 1px #fff1c0,0 2px #09232b;border-radius:7px;min-height:46px;font-weight:750}
+body .boton-secundario{background:#234d53;color:var(--bh-crema);border:1px solid #7ea88c;border-bottom:3px solid #112f37;border-radius:7px;min-height:44px;box-shadow:inset 0 1px #b3d7b51c;font-size:13px}
+body .dominios-cuentas{color:var(--bh-suave);font-size:11px}body .dominios-cuentas summary{padding:6px 0}body .error{color:#ffd0b7}body .ola{background:#73bea2;opacity:.12;animation-duration:18s}
+
+/* Tablas de madera: tienda, mochila, enciclopedia y clasificación. */
+body :is(#comercio,#ranking,#libro-movil){background:var(--bh-tabla);border:3px solid var(--bh-borde);box-shadow:inset 0 0 0 3px #251f1b,0 16px 40px #03121c99;color:var(--bh-crema)}
+body #comercio .comercio-cabecera{background:#231d1a3d;border-bottom:2px solid #d3ad704f;padding:20px 24px}body #comercio p{color:#e2d4b9}body #comercio small{color:#d5d8ae}body #comercio .comercio-saldo{color:#f6d88d;font:700 24px var(--bh-fuente)}
+body #comercio .comercio-accion{background:linear-gradient(#708c6d,#486a56);color:var(--bh-crema);border-color:#bccaa1;padding:22px 16px;font-size:18px}body #comercio .comercio-producto{border-color:#d9bd803b}body #comercio .comercio-producto h3{color:#fae6b3;font-size:16px}body #comercio .comercio-producto p{font-size:13px;line-height:1.55}body #comercio footer{border-top:1px solid #c6a36c66;background:#221e1a38}
+body #comercio button[aria-current=true],body #ranking button[aria-pressed=true]{background:linear-gradient(#eed190,#d0aa66);color:#29342a;border-color:#ffe0a0;border-bottom-color:#85613d}
+body #ranking header small{color:#e5cfaa}body #ranking table{border-collapse:collapse}body #ranking th{color:#f4d590;background:#281f1c55;font-size:12px}body #ranking td,body #ranking th{border-bottom:1px solid #cbb18133}body #ranking .ranking-tu-fila{background:#d9c0801c}body #ranking nav{gap:8px}body #ranking-estado,body #ranking-propio{color:#ead8b6}
+body #libro-movil-datos{color:var(--bh-crema);line-height:1.6}body #libro-movil select{border:1px solid #c4a477;border-radius:6px;padding:10px;background:#2f2923;color:#fff0cb;max-width:100%;font-size:16px}
+body #cartel-ranking .cartel-ranking-cuerpo{background:var(--bh-tabla);border:3px solid #c4a06b;border-radius:10px;box-shadow:inset 0 0 0 2px #30251e,0 4px 0 #1e211e,0 0 10px #e9c47a1a}body #cartel-ranking h2{font-size:11px;line-height:1.8;text-shadow:0 2px #2b211e}body #cartel-ranking :is(small,h3){color:#eee2c2}body #cartel-ranking li{border-color:#e1c08430}body #cartel-ranking strong{color:#f4d58e}body #cartel-ranking-estado{color:#e6d1ae}body #cartel-ranking footer{border-color:#c5a26f77;color:#fff0c6}
+
+/* Pantallas de descanso: ajustes, salas y conversación. */
+body #ajustes{box-sizing:border-box;width:min(460px,94vw);max-height:calc(100dvh - 24px);overflow:auto;padding:24px}body #ajustes label{margin:16px 0}body #ajustes #boton-logout{background:linear-gradient(#865e4a,#684539);border-color:#c19b78;color:#fff0d6}
+body #multijugador #sala-codigo{font-family:monospace;color:#f0d390;font-size:clamp(18px,5.5vw,24px)}body #sala-jugadores li{background:#96c5a710;border:1px solid #87b59526}body #sala-mensaje{color:#f0d8a4}
+body #chat-sala-mensajes{background:#071f2e88;border:1px solid #8bbaa431}body #chat-sala-mensajes li{background:#bdd9bd0a;border-left:2px solid #648f83;border-radius:6px}body #chat-sala-mensajes .chat-mio{background:#4b8c7033;border-left-color:#c3c78d}body #chat-sala-mensajes strong{color:#e5d9ab}body #chat-sala-mensajes p{color:#edf1df;line-height:1.6}body #chat-sala-mensajes time{color:#b9c9b8}body #chat-sala-texto{font-size:16px}
+body #instalar-app header img{border:1px solid #8bad8d;background:#0d2c3b;border-radius:12px}body #instalar-estado{color:#e4d59d}
+
+/* La captura conserva el brillo y el color de su rareza. */
+body #tarjeta-captura{background:linear-gradient(145deg,#1c4148,#112f3c);border-radius:12px;border-color:rgba(var(--brillo-captura),.9);box-shadow:0 0 24px rgba(var(--brillo-captura),.25),inset 0 0 0 3px #a3b39519;color:var(--bh-crema)}body #tarjeta-captura *{font-family:var(--bh-fuente)}body #tarjeta-captura .captura-ficha h2{font-family:var(--bh-pixel);font-size:16px;font-weight:400;line-height:1.7;color:var(--bh-crema)}body #captura-cientifico{color:#b9d3c7}body #captura-datos dt{color:#a9c4b3}body #captura-curiosidad{background:#d7c68d0b;color:#e5e9d0;border-radius:0 7px 7px 0}body #captura-calidad{font-size:15px}body #captura-continuar{color:var(--bh-crema)}
+
+/* Controles: tacto legible, sin filtros sobre la escena 3D. */
+body #controles-tactiles button{box-shadow:inset 0 1px #daf1ce33,0 3px #0c252e99;background:linear-gradient(#386e66ee,#214b50ee);border-radius:9px}body #controles-tactiles button.presionado{background:#779c77;color:#0b2933;border-color:#e7d59c;box-shadow:inset 0 2px #233f36}body #tactil-analogico{background:radial-gradient(circle,#588e7a88,#173b49bb);border-color:#b0c6a3;box-shadow:inset 0 0 14px #0b283b66,0 3px #0a263344}body #tactil-palanca{background:linear-gradient(145deg,#a6bea1,#4b8b78);border-color:#e7dcac}body #tactil-presentacion{color:var(--bh-crema)}body #tactil-presentacion h2{font-family:var(--bh-pixel);font-size:18px;line-height:1.8;color:var(--bh-oro)}body #tactil-presentacion small{color:#bbd3b6}
+body #panel-chat{border:2px solid #7da58d;border-radius:12px;background:linear-gradient(#183f48,#0f2e3b);box-shadow:0 8px 24px #071b2a77}body #panel-chat .chat-cabecera{background:#284c4d;color:#eed6a2}body #chat-mensajes{font-family:var(--bh-fuente);line-height:1.6}body #chat-input{font-family:var(--bh-fuente);font-size:16px;background:#0c2935;color:var(--bh-crema)}
+@media(hover:hover){body button:hover:not(:disabled){border-color:#e1cb91;box-shadow:inset 0 1px #d9edbc33,0 3px #081f2c66}body .boton-principal:hover{background:#f1d597}body .boton-secundario:hover{background:#315f60}}
+@media(max-width:600px){body .caja-auth{padding:20px}body :is(#ajustes,#ranking,#libro-movil,#multijugador,#chat-sala,#instalar-app){padding:18px}body :is(#ajustes,#ranking,#libro-movil,#comercio,#multijugador,#chat-sala,#instalar-app) h2{font-size:12px;line-height:1.9}body #tarjeta-captura .captura-ficha h2{font-size:13px}body #comercio .comercio-cabecera{padding:16px;align-items:center;gap:12px}body #comercio .comercio-saldo{font-size:20px}body #comercio .comercio-accion{font-size:16px;padding:18px 12px}body #cartel-ranking h2{font-size:10px}body #tactil-presentacion h2{font-size:15px}body #barra-juego button{min-height:36px;padding:8px 9px!important}body #estado-guardado{font-size:10px;max-width:200px}}
+@media(max-height:500px) and (orientation:landscape){body #tactil-presentacion h2{font-size:13px}body #tactil-presentacion{line-height:1.35}body #chat-sala header h2{font-size:12px}body #ajustes{padding:14px 20px}}
+@media(prefers-reduced-motion:reduce){body *,body *::before,body *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

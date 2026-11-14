@@ -181,3 +181,13 @@ Solo los miembros conectados de esa sala pueden enviar y leer sus últimos **50 
 La RPC autenticada verifica membresía y entrega el contenido. Realtime envía solo avisos privados sin texto; el navegador vuelve a consultar los mensajes verificados, por lo que falsificar un aviso no permite suplantar autores. Hay consulta de respaldo al reconectar y al tener abierto el chat. La caché de la app no guarda respuestas del chat. La instalación completa incluye `20261114021514_chat_salas.sql`.
 
 Pruebas locales: `tests/chat-api.cjs`, `tests/chat-retencion.sql` y `tests/chat-browser.cjs` (dos cuentas, API real y transporte de avisos simulado con `CHAT_FAKE_REALTIME=1` sobre el stack mínimo). El script del navegador admite una instancia real de Realtime con cuentas efímeras precreadas mediante `CHAT_FIXTURE`; nunca usar cuentas personales ni subir credenciales al repositorio.
+
+## Estilo visual: lago y madera
+
+La interfaz usa azul profundo, verde agua y tonos crema/dorados. Tienda, mochila y ranking tienen paneles de madera hechos con gradientes estáticos; ajustes, salas y chat usan fondos oscuros suaves. Los títulos cortos usan la fuente pixelada local **Press Start 2P**, de CodeMan38, distribuida bajo SIL Open Font License 1.1 (licencia en `textures/fuentes/PressStart2P-OFL.txt`). Los textos largos y formularios usan la tipografía del sistema para facilitar la lectura.
+
+Los botones tienen relieve, estado de pulsación y foco dorado para teclado. Se mantiene el brillo por rareza en las capturas, con transiciones cortas y respeto por `prefers-reduced-motion`. No se aplican filtros a la escena 3D ni desenfoques de fondo en los paneles. El tema está en `tema-lago.css`, separado de los estilos de estructura y controles, y se incluye con la fuente en la descarga sin conexión.
+
+## Estabilidad de texturas
+
+La cámara usa un plano cercano de 1 unidad (1/64 de celda) para mantener precisión de profundidad en el mapa. El alcance lejano se conserva. Suelo y agua mantienen ampliación por vecino más cercano para conservar el pixel art; al alejarse usan mipmaps y mezcla entre niveles, evitando el ruido que parece parpadeo al moverse. En WebGL1, el agua con dimensiones no POT usa filtrado de reducción compatible sin forzar cambios de tamaño. No se desactiva la prueba de profundidad del mundo ni se cambian las colisiones.

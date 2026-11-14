@@ -1,5 +1,5 @@
 // Generado con npm run build:pwa. Solo recursos públicos del juego.
-self.BLUEHAVEN_VERSION="428d52323a36eea8";
+self.BLUEHAVEN_VERSION="6711b9ea3d457f57";
 self.BLUEHAVEN_ARCHIVOS=[
   "./audio.js",
   "./auth.js",
@@ -65,11 +65,14 @@ self.BLUEHAVEN_ARCHIVOS=[
   "./sketch.js",
   "./style.css",
   "./tarjeta-captura.js",
+  "./tema-lago.css",
   "./textures/LogoBlueHaven.png",
   "./textures/basura/Algas.png",
   "./textures/basura/Bota.png",
   "./textures/basura/Lata.png",
   "./textures/basura/Plastico.png",
+  "./textures/fuentes/PressStart2P-OFL.txt",
+  "./textures/fuentes/PressStart2P.ttf",
   "./textures/mundo/Agua.gif",
   "./textures/mundo/Materiales_Suelo.png",
   "./textures/mundo/cielo.png",

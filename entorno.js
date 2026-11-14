@@ -127,7 +127,7 @@ function crearTexturaSueloExterior() {
   textura.wrapS = THREE.RepeatWrapping;
   textura.wrapT = THREE.RepeatWrapping;
   textura.magFilter = THREE.NearestFilter;
-  textura.minFilter = THREE.NearestFilter;
+  configurarTexturaTerreno(textura);
   return textura;
 }
 
