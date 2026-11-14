@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Blue Haven</title>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#102d38" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Blue Haven" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-180.png" />
     <link rel="stylesheet" href="style.css" />
     <link rel="icon" href="textures/LogoBlueHaven.png" />
   </head>
@@ -97,12 +104,13 @@
           <button type="submit" class="boton-principal">Crear mi cuenta</button>
           <p class="error" id="reg-error"></p>
         </form>
+        <button id="instalar-acceso" class="boton-secundario" type="button">📲 Instalar en el celular</button>
         <details class="dominios-cuentas"><summary>Correos permitidos y reglas</summary><p>Usá un proveedor de la lista. No se admiten palabras ofensivas en el nombre o en el correo.</p><p id="dominios-permitidos"></p></details>
       </div>
     </div>
 
-    <div id="barra-juego" hidden><button id="boton-ajustes" type="button">⚙ Ajustes</button><button id="boton-ranking" type="button">🏆 Ranking</button><span id="estado-guardado" aria-live="polite"></span></div>
-    <dialog id="ajustes"><form method="dialog"><h2>Ajustes del juego</h2><label>Calidad gráfica <select id="calidad-grafica"><option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option></select></label><label><input type="checkbox" id="mostrar-fps"> Mostrar rendimiento</label><label for="volumen-general">Volumen <output id="valor-volumen">100%</output></label><input id="volumen-general" type="range" min="0" max="100" step="1"><label><input id="silenciar-audio" type="checkbox"> Silenciar</label><label><input id="musica-ambiente" type="checkbox"> Música ambiente</label><label><input id="activar-tactil" type="checkbox"> Controles táctiles</label><p id="detalle-rendimiento"></p><p>WASD: moverte · Mouse: mirar · F: pescar · I: mochila · L: especies · Q: guía · Esc: ajustes · P: liberar/capturar cursor</p><button id="cerrar-ajustes">Volver al juego</button><button id="boton-logout" type="button" style="display:none">Cerrar sesión</button></form></dialog>
+    <div id="barra-juego" hidden><button id="boton-ajustes" type="button">⚙ Ajustes</button><button id="boton-multijugador" type="button">👥 Multijugador</button><span id="estado-guardado" aria-live="polite"></span></div>
+    <dialog id="ajustes"><form method="dialog"><h2>Ajustes del juego</h2><label>Calidad gráfica <select id="calidad-grafica"><option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option></select></label><label><input type="checkbox" id="mostrar-fps"> Mostrar rendimiento</label><label for="volumen-general">Volumen <output id="valor-volumen">100%</output></label><input id="volumen-general" type="range" min="0" max="100" step="1"><label><input id="silenciar-audio" type="checkbox"> Silenciar</label><label><input id="musica-ambiente" type="checkbox"> Música ambiente</label><label><input id="activar-tactil" type="checkbox"> Controles táctiles</label><p id="detalle-rendimiento"></p><p>WASD: moverte · Mouse: mirar · F: pescar · I: mochila · L: especies · Q: guía · Esc: ajustes · P: liberar/capturar cursor</p><button id="cerrar-ajustes">Volver al juego</button><button id="instalar-ajustes" type="button">📲 Instalar / actualizar juego</button><button id="boton-logout" type="button" style="display:none">Cerrar sesión</button></form></dialog>
     <!-- Chatbot: guía de pesca conectada a la base de datos -->
     <button
       id="boton-chat"
@@ -172,6 +180,9 @@
     <script src="audio.js"></script>
     <script src="ranking.js"></script>
     <script src="controles-tactiles.js"></script>
+    <script src="chat-sala.js"></script>
+    <script src="multijugador.js"></script>
     <script src="sketch.js"></script>
+    <script src="instalar.js"></script>
   </body>
 </html>

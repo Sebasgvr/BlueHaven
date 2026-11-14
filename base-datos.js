@@ -42,6 +42,15 @@
     },
     async salir() { verificar(await obtenerCliente().auth.signOut()); },
     async estado() { return rpc('bh_estado'); },
+    async sala(accion,codigo,cliente) { return rpc('bh_sala',{p_accion:accion,p_codigo:codigo||'',p_cliente:cliente}); },
+    async chatSala(cliente,texto=null,token=null) { return rpc('bh_sala_chat',{p_cliente:cliente,p_texto:texto,p_token:token}); },
+    async canalSala(nombre,yo) {
+      const c=obtenerCliente(); const sesion=verificar(await c.auth.getSession()).session;
+      if(!sesion)throw new Error('Iniciá sesión para entrar a la sala.');
+      await c.realtime.setAuth(sesion.access_token);
+      return c.channel(nombre,{config:{private:true,broadcast:{self:false},presence:{key:yo}}});
+    },
+    async cerrarCanalSala(canal) { return obtenerCliente().removeChannel(canal); },
     async ranking(criterio='dinero') { return rpc('bh_ranking',{p_criterio:criterio}); },
     async estadoTienda() { return rpc('bh_tienda_estado'); },
     async operar(ruta, datos) {

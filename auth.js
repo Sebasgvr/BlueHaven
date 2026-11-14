@@ -79,9 +79,13 @@ async function ocultarAuthYArrancar(errorEl) {
 }
 function volverAlAcceso(mensaje = '') {
   window.partidaId++;
+  window.Multijugador?.desconectar();
+  document.getElementById('multijugador')?.close();
+  document.getElementById('instalar-app')?.close();
   window.AudioJuego?.pausar();
   window.ControlTactil?.soltarTodo();
   document.getElementById('ranking')?.close();
+  document.getElementById('cartel-ranking')?.setAttribute('hidden','');
   document.getElementById('libro-movil')?.close();
   if (typeof noLoop === 'function' && window.juegoPreparado) noLoop();
   if (document.pointerLockElement) document.exitPointerLock();
@@ -103,6 +107,7 @@ function volverAlAcceso(mensaje = '') {
 botonLogout.addEventListener('click', async () => {
   botonLogout.disabled = true;
   try {
+    await window.Multijugador?.desconectar();
     if (!window.modoInvitado) await BaseDatos.salir();
     volverAlAcceso();
   } catch (err) { estadoGuardado('No se pudo cerrar sesión: ' + err.message); }

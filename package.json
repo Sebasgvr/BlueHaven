@@ -17,7 +17,9 @@
     "test:settings": "node tests/settings-browser.cjs",
     "test:captures": "node tests/capture-browser.cjs",
     "test:forest": "node tests/forest-browser.cjs",
-    "test:mobile": "node tests/mobile-browser.cjs"
+    "test:mobile": "node tests/mobile-browser.cjs",
+    "build:pwa": "node scripts/generar-pwa.cjs",
+    "test:pwa": "node tests/pwa-browser.cjs"
   },
   "engines": {
     "node": ">=20"

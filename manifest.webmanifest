@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "Blue Haven",
+  "short_name": "Blue Haven",
+  "description": "Explorá el lago, pescá y aprendé. Jugá individualmente o en salas con amigos.",
+  "lang": "es-AR",
+  "start_url": "./?inicio=app",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#102d38",
+  "theme_color": "#102d38",
+  "categories": ["games", "sports", "education"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
