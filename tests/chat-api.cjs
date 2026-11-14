@@ -9,7 +9,7 @@ const anon=createClient(url,key);assert.ok((await anon.rpc('bh_sala_chat',{p_cli
 const token=crypto.randomUUID(),primero=await chat(0,'Hola al lago',token);assert.equal(primero.error,null);assert.equal(primero.data.length,1);assert.equal(primero.data[0].nombre,'Pescador Chat 0');assert.equal(primero.data[0].es_tuyo,true);
 assert.equal((await chat(0,'Hola al lago',token)).data.length,1,'Reintento sin duplicar');assert.ok((await chat(0,'Otro mensaje',crypto.randomUUID())).error,'Límite de frecuencia servidor');
 const ajeno=await chat(1);assert.equal(ajeno.data[0].es_tuyo,false);assert.deepEqual(Object.keys(ajeno.data[0]).sort(),['es_tuyo','fecha','id','nombre','texto']);assert.deepEqual((await chat(2)).data,[],'Salas aisladas');
-for(const texto of ['', 'x'.repeat(281),'sos un p3lotud0'])assert.ok((await chat(1,texto,crypto.randomUUID())).error);
+for(const texto of ['', 'x'.repeat(281),'sos un p3lotud0','sos un p.u.t.o','boludo!!!','mierdaaaa','sos un p4j3r0'])assert.ok((await chat(1,texto,crypto.randomUUID())).error);
 const html=await chat(1,'<img src=x onerror=alert(1)>',crypto.randomUUID());assert.equal(html.error,null);assert.equal(html.data.length,2,'Se conserva como texto, nunca HTML ejecutable');
 assert.ok((await c[1].rpc('bh_sala_chat',{p_cliente:crypto.randomUUID()})).error);
 await sala(0,'salir');assert.ok((await chat(0)).error,'Sin membresía no lee aunque conozca el código');

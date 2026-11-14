@@ -24,3 +24,5 @@ fs.appendFileSync('supabase/instalar.sql','\n'+fs.readFileSync('supabase/migrati
 fs.appendFileSync('supabase/instalar.sql','\n'+fs.readFileSync('supabase/migrations/20261113235843_salas_orden_bloqueos.sql','utf8'));
 
 fs.appendFileSync('supabase/instalar.sql','\n'+fs.readFileSync('supabase/migrations/20261114021514_chat_salas.sql','utf8'));
+
+fs.appendFileSync('supabase/instalar.sql','\n'+fs.readFileSync('supabase/migrations/20261114194121_filtro_mensajes_reforzado.sql','utf8'));

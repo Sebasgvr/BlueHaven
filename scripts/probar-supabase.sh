@@ -39,6 +39,10 @@ chat_installed=$(docker compose -p "$project_name" -f "$compose_file" exec -T db
 if [ "$chat_installed" != t ]; then
  docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -v ON_ERROR_STOP=1 < supabase/migrations/20261114021514_chat_salas.sql
 fi
+messages_filter_installed=$(docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -tAc "select to_regprocedure('bluehaven_privado.validar_pregunta_chatbot()') is not null")
+if [ "$messages_filter_installed" != t ]; then
+ docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -v ON_ERROR_STOP=1 < supabase/migrations/20261114194121_filtro_mensajes_reforzado.sql
+fi
 docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -c "NOTIFY pgrst, 'reload schema'"
 SUPABASE_TEST_URL=http://127.0.0.1:54321 SUPABASE_TEST_ANON_KEY="$(node tests/supabase/token.cjs)" npm run test:api
 
@@ -48,3 +52,5 @@ docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres
 
 SUPABASE_TEST_URL=http://127.0.0.1:54321 SUPABASE_TEST_ANON_KEY="$(node tests/supabase/token.cjs)" node tests/chat-api.cjs
 docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -v ON_ERROR_STOP=1 < tests/chat-retencion.sql
+
+docker compose -p "$project_name" -f "$compose_file" exec -T db psql -U postgres -v ON_ERROR_STOP=1 < tests/filtros-texto.sql

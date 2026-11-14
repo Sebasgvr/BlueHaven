@@ -48,6 +48,10 @@ async function rpc(c, name, args) {
   assert.equal((await rpc(a, 'bh_vender_todos')).total, 0);
   assert.ok((await a.rpc('bh_guardar_captura', { ...captura, p_calidad: 'fake', p_token: crypto.randomUUID() })).error);
   await rpc(a, 'bh_registrar_pregunta', { p_pregunta: '¿Dónde vive el Atún?', p_respuesta: 'Océano' });
+  for(const texto of ['sos un p.u.t.o','boludo!!!','mierdaaaa']) {
+    const rechazada=await a.rpc('bh_registrar_pregunta',{p_pregunta:texto,p_respuesta:'Respuesta'});
+    assert.equal(rechazada.error?.code,'23514','La guía también bloquea insultos desde la API');
+  }
   const preguntas = await a.from('preguntas_chatbot').select('*'); assert.equal(preguntas.data.length, 1);
   assert.deepEqual((await b.from('preguntas_chatbot').select('*')).data, []);
   let tienda=await rpc(a,'bh_tienda_estado');assert.equal(tienda.productos.length,9);assert.equal(tienda.objetos.bambu,1);

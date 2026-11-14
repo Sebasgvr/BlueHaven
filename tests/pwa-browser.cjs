@@ -2,7 +2,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
 (async()=>{
  // Servir en subdirectorio, como GitHub Pages, y simular una versión nueva sin editar el repo.
  const raiz=path.resolve(__dirname,'..');let nueva=false,apis=0;
- const mime={'.svg':'image/svg+xml','.json':'application/json','.gltf':'model/gltf+json','.js':'text/javascript','.css':'text/css','.html':'text/html','.webmanifest':'application/manifest+json','.png':'image/png','.gif':'image/gif'};
+ const mime={'.ttf':'font/ttf','.svg':'image/svg+xml','.json':'application/json','.gltf':'model/gltf+json','.js':'text/javascript','.css':'text/css','.html':'text/html','.webmanifest':'application/manifest+json','.png':'image/png','.gif':'image/gif'};
  const servidor=http.createServer(async(req,res)=>{try{
   const u=new URL(req.url,'http://localhost');if(!u.pathname.startsWith('/Blue-Haven/')){res.writeHead(200,{'Content-Type':'text/html'});res.end('<h1>Otro sitio</h1>');return;}
   if(u.pathname==='/Blue-Haven/api-prueba'){apis++;res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({privado:apis}));return;}
