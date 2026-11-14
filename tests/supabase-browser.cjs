@@ -6,7 +6,7 @@ if (!url || !key || !['localhost','127.0.0.1'].includes(new URL(url).hostname)) 
 (async () => {
   const browser = await chromium.launch({...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}), args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
   try {
-    const page = await browser.newPage({viewport:{width:800,height:450}});
+    const page = await browser.newPage({serviceWorkers:'block',viewport:{width:800,height:450}});
     page.setDefaultTimeout(60000);
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
     await page.route('**/config.js',r=>r.fulfill({contentType:'application/javascript',body:'window.BLUEHAVEN_CONFIG='+JSON.stringify({supabaseUrl:url,supabaseKey:key})}));
@@ -54,7 +54,7 @@ if (!url || !key || !['localhost','127.0.0.1'].includes(new URL(url).hostname)) 
     assert.equal(await page.evaluate(()=>inventario.length),1);assert.equal(await page.evaluate(()=>CATALOGO_ESPECIES.every(p=>!!spritesPeces[p.sprite])),true);
     if(await page.evaluate(()=>!!document.pointerLockElement))await page.keyboard.press('p');
     await page.evaluate(()=>{BIENVENIDA.activa=false;BIENVENIDA._saliendo=false});
-    await page.click('#boton-ranking');await page.waitForFunction(()=>document.getElementById('ranking-propio').textContent.includes('$649'));
+await page.waitForFunction(()=>!!TIENDA.cajaColision);await page.evaluate(()=>{const c=posicionCartelRanking();jugador.posicion.set(c.x,c.z+170);jugador.angulo=-Math.PI/2;jugador.inclinacion=Math.atan2(c.y-TAMAÑO_CELDA*.7,170);actualizarCamara3D()});await page.waitForFunction(()=>cartelRankingDisponible());await page.click('#cartel-ranking');await page.waitForFunction(()=>document.getElementById('ranking-propio').textContent.includes('$649'));
     assert.match(await page.locator('#ranking-propio').innerText(),/2 capturas/);
     await page.locator('[data-ranking="capturas"]').click();await page.waitForFunction(()=>!document.getElementById('ranking-actualizar').disabled);await page.click('#ranking-cerrar');
     assert.deepEqual(errors,[]);

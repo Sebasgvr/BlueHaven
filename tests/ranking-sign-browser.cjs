@@ -1,0 +1,17 @@
+const{chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs');
+(async()=>{const b=await chromium.launch({...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']});try{
+ const p=await b.newPage({serviceWorkers:'block',viewport:{width:960,height:640},hasTouch:true,isMobile:true});p.setDefaultTimeout(60000);const errores=[];let consultas=0;p.on('pageerror',e=>errores.push(e.message));
+ await p.route('**/rest/v1/rpc/bh_ranking',r=>{consultas++;return r.fulfill({contentType:'application/json',body:JSON.stringify({jugadores:[{puesto:1,nombre:'Capitana Lago',dinero:12000,capturas:85},{puesto:2,nombre:'Pescador del río',dinero:8000,capturas:61}],total_jugadores:2,tu_puesto:null})})});
+ await p.goto(process.env.TEST_URL||'http://127.0.0.1:8080');await p.waitForFunction(()=>window.juegoPreparado);await p.locator('#boton-invitado').tap();await p.locator('#tactil-comenzar').tap();await p.waitForFunction(()=>!bienvenidaActiva()&&!!TIENDA.cajaColision);
+ assert.equal(await p.locator('#boton-ranking').count(),0);assert.equal(await p.locator('#cartel-ranking').isVisible(),false);assert.equal(consultas,0);await p.keyboard.press('r');assert.equal(await p.locator('#ranking').evaluate(d=>d.open),false);
+ await p.evaluate(()=>{const c=posicionCartelRanking();jugador.posicion.set(c.x,c.z+170);jugador.angulo=-Math.PI/2;jugador.inclinacion=Math.atan2(c.y-TAMAÑO_CELDA*.7,170);actualizarCamara3D()});await p.waitForFunction(()=>cartelRankingDisponible());await p.waitForFunction(()=>document.querySelectorAll('#cartel-ranking-dinero li').length===2);assert.equal(consultas,2);
+ fs.mkdirSync('test-results',{recursive:true});await p.screenshot({path:'test-results/cartel-ranking-paisaje.png'});
+ await p.setViewportSize({width:390,height:844});await p.waitForFunction(()=>width===390&&cartelRankingDisponible());await p.screenshot({path:'test-results/cartel-ranking-movil.png'});
+ // Tocar el centro del cartel aunque la zona de mirar cubra ese punto.
+ const r=await p.locator('#cartel-ranking').boundingBox();await p.touchscreen.tap(r.x+r.width/2,r.y+r.height/2);await p.waitForFunction(()=>document.getElementById('ranking').open);await p.waitForFunction(()=>document.querySelectorAll('#ranking-filas tr').length===2);await p.locator('#ranking-cerrar').tap();
+ await p.waitForFunction(()=>cartelRankingDisponible());await p.keyboard.press('r');await p.waitForFunction(()=>document.getElementById('ranking').open);await p.locator('#ranking-cerrar').tap();
+ const n=consultas;await p.waitForTimeout(500);assert.equal(consultas,n,'El cartel no consulta por cuadro');
+ await p.evaluate(()=>{jugador.angulo=Math.PI/2;actualizarCamara3D()});await p.waitForFunction(()=>cartelRanking.hidden);await p.keyboard.press('r');assert.equal(await p.locator('#ranking').evaluate(d=>d.open),false);
+ await p.evaluate(()=>{jugador.angulo=-Math.PI/2;actualizarCamara3D()});await p.waitForFunction(()=>!cartelRanking.hidden);await p.locator('#boton-ajustes').tap();await p.locator('#boton-logout').tap();await p.waitForFunction(()=>!document.body.classList.contains('jugando'));assert.equal(await p.locator('#cartel-ranking').isVisible(),false);assert.deepEqual(errores,[]);
+ console.log('Cartel ranking: sin botón, ubicación junto a tienda, Top 3 doble, toque detrás de cámara, R cercano, 2 consultas iniciales y limpieza al salir OK');
+ }finally{await b.close()}})().catch(e=>{console.error(e);process.exitCode=1});

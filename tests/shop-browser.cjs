@@ -1,6 +1,6 @@
 const {chromium}=require('playwright');const assert=require('node:assert/strict');const fs=require('node:fs');
 (async()=>{const b=await chromium.launch({...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']});try{
-const p=await b.newPage({viewport:{width:960,height:640}});p.setDefaultTimeout(60000);const errors=[];p.on('pageerror',e=>errors.push(e.message));
+const p=await b.newPage({serviceWorkers:'block',viewport:{width:960,height:640}});p.setDefaultTimeout(60000);const errors=[];p.on('pageerror',e=>errors.push(e.message));
 await p.goto(process.env.TEST_URL||'http://127.0.0.1:8080');await p.waitForFunction(()=>window.juegoPreparado);await p.click('#boton-invitado');await p.waitForFunction(()=>document.body.classList.contains('jugando'));await p.waitForFunction(()=>!!TIENDA.objetoMundo);
 await p.evaluate(()=>{BIENVENIDA.activa=false;BIENVENIDA._saliendo=false;jugador.posicion.set(TAMAÑO_CELDA*32,TAMAÑO_CELDA*19);dinero=900;inventario=[]});
 const exterior=await p.evaluate(()=>jugador.posicion.array());

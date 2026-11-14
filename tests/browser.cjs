@@ -1,6 +1,6 @@
 const {chromium}=require('playwright');const assert=require('node:assert/strict');const fs=require('node:fs');
 (async()=>{const browser=await chromium.launch({...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']});try{
-const page=await browser.newPage({viewport:{width:960,height:540}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+const page=await browser.newPage({serviceWorkers:'block',viewport:{width:960,height:540}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.goto(process.env.TEST_URL||'http://127.0.0.1:8080');await page.waitForFunction(()=>window.juegoPreparado);
 await page.click('#boton-invitado');await page.waitForFunction(()=>document.body.classList.contains('jugando'));await page.evaluate(()=>{BIENVENIDA.activa=false;BIENVENIDA._saliendo=false});
 await page.waitForFunction(()=>!!TIENDA.objetoMundo);await page.waitForTimeout(500);
