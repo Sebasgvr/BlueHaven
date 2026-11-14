@@ -80,3 +80,34 @@ La política privada de denegación explícita eliminó el aviso nuevo de RLS si
 ## Analógico y barras discretas
 
 Doce pruebas de lógica y la suite móvil de Chromium aprobadas. Se verificaron movimiento y mirada con dos dedos, velocidad parcial, límite circular de intensidad, cancelación y reutilización del analógico después de toques fuera del control; no se captura el cursor ni se abre Ajustes. Los cinco minijuegos, notas sostenidas simultáneas, menús y rotación siguen aprobados. En registro a 390×480 el contenido largo conserva desplazamiento con barras ocultas. Validación con pantalla táctil emulada; pendiente comprobación en un teléfono físico.
+
+## Salas multijugador privadas (4 jugadores)
+
+API local real: cinco intentos simultáneos admiten solo tres acompañantes; crear es idempotente, una cuenta no ocupa dos sesiones, códigos inválidos/no existentes fallan, las salas se aíslan, salir libera plaza y la última salida elimina la sala. La respuesta expone solo identificador efímero, nombre, asiento y datos de invitación. SQL con rollback: autorización por membresía, caducidad de la sala, lease de 75 segundos y ausencia de permisos directos/anon. Se serializan solo admisiones/salidas; los latidos permanecen independientes para evitar bloqueos al recuperar membresías vencidas.
+
+Dos navegadores Chromium con cuentas efímeras, Supabase Auth/PostgreSQL y WebSockets privados reales: creación/unión por interfaz, rechazo de suscripción de una cuenta sin membresía, presencia, avatares, posición interpolada, orientación y estado de pesca. Una captura/venta no modifica dinero ni mochila de la otra cuenta. Cuatro plazas, quinto rechazado, salida a individual, reentrada y corte/restauración de red aprobados. Vista de sala a 390×844 y personaje a 960×540 inspeccionadas; los nombres limitan su tamaño de cerca. Se usó un puente local con verificación TLS para atravesar el proxy del entorno; el código del juego conserva la URL pública directa. Las cuentas efímeras fueron cerradas y eliminadas; no se enviaron emails.
+
+Las migraciones están aplicadas en el Supabase alojado y el asesor de seguridad conserva los mismos nueve avisos previos de RPC privilegiadas y el de contraseñas filtradas, sin avisos nuevos. El transporte visual no es autoritativo ni concede recompensas; Realtime cachea la autorización del canal durante la conexión. Es una primera versión social para salas entre amigos, con pesca y progreso individuales. No se probó en cuatro teléfonos físicos ni se midió rendimiento bajo carga de múltiples salas.
+
+## Instalación móvil (PWA)
+
+Chromium con pantalla táctil emulada y servidor en `/Blue-Haven/`: manifiesto leído por CDP sin errores, íconos 192/512, scope aislado de otros sitios y 82 recursos públicos cacheados (aprox. 7 MB). Flujo del botón de instalación comprobado con un evento controlado; Safari/iPhone muestra las instrucciones de Compartir → Agregar a pantalla de inicio y se inspeccionó su presentación móvil.
+
+Red desactivada de verdad en el contexto: se abre la página, inicia el invitado, cargan sprites y modelo de tienda y se recuperan dinero/mochila después de recargar. Las respuestas dinámicas de un endpoint del mismo origen no se cachean. Se simuló otra versión del manifiesto de recursos: queda esperando, la partida continúa y solo al pulsar Actualizar y reiniciar se activa; el progreso de invitado permanece. Las APIs de Supabase y los WebSockets están fuera del alcance de caché.
+
+Aprobadas también las doce pruebas de lógica y la suite táctil con los cinco minijuegos. No se hizo una instalación física en Android/iOS ni se verificaron diálogos nativos del sistema operativo; su disponibilidad depende del navegador. El almacenamiento del invitado puede ser independiente entre Safari y la app de iOS, y el navegador puede eliminar caché/progreso local al borrar datos o necesitar espacio.
+
+## Cartel flotante de ranking junto a la tienda
+
+El HUD ya no contiene el botón Ranking. Un cartel anclado al mundo se proyecta junto a la tienda, muestra los primeros tres puestos por dinero/capturas y permite abrir el Top 20 al acercarse mediante toque, clic o R. Solo se consulta al verlo cerca y como máximo una vez por minuto; el movimiento no genera solicitudes. Se oculta fuera de cámara, durante menús/pesca y al cerrar sesión. La oclusión de las paredes usa el BVH existente de la tienda.
+
+Prueba Chromium: ausencia de consultas lejos, dos consultas iniciales, listas dobles, proyección vertical/horizontal inspeccionada, toque aun cuando lo cubre la zona táctil de cámara, R cercano, rechazo de R lejos/fuera de cámara, ausencia de consultas por cuadro y limpieza al salir. También se verifican los minijuegos táctiles y la clasificación con cuenta. Sin cambios de SQL ni permisos de Supabase.
+
+
+## Chat privado de sala
+
+Auth/PostgreSQL/PostgREST locales reales: membresía y cliente vigentes, aislamiento entre salas, nombres asignados por el servidor, campos públicos mínimos, lectura anónima rechazada, límite de frecuencia, texto vacío/largo/ofensivo rechazado, reintento sin duplicar y denegación después de salir. Transacción local con rollback: 60 envíos dejan 50 mensajes; cada escritura emite un aviso privado al canal correcto y sin texto; los roles no tienen acceso directo a la tabla.
+
+Dos navegadores con cuentas locales y RPC reales: enviar/leer, nombre propio, aviso de mensaje no leído, T, bloqueo de movimiento al escribir, rechazo de ofensas, HTML mostrado como texto y limpieza entre salas. Transporte de avisos simulado; un aviso con texto falsificado se ignora y el contenido se vuelve a leer del servidor. Vista de celular y altura reducida para teclado verificadas. La migración está aplicada en Supabase alojado y se comprobó con consultas de solo lectura que existe la función de Broadcast y que no hay acceso anónimo/directo a los mensajes.
+
+La revisión automática rechazó crear cuentas de prueba en la instancia de producción; se continuó con la alternativa local. No se validó esta entrega con dos cuentas reales en el WebSocket de producción ni con teléfonos físicos.
