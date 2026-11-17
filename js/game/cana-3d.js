@@ -278,6 +278,35 @@ function _prepararMallaHook(malla) {
   }
 }
 
+// Busca la punta real de una caña: promedio de los vértices visibles más altos
+// del modelo, expresados en el espacio del contenedor. Así el anzuelo y la tanza
+// salen exactamente de la punta de cada caña, sin importar su largo o forma.
+function _calcularPuntaVisual(contenedor, excluir) {
+  contenedor.updateMatrixWorld(true);
+  const inversa = new THREE.Matrix4().copy(contenedor.matrixWorld).invert();
+  const puntos = [];
+  contenedor.traverse((objeto) => {
+    if (!objeto.isMesh || objeto === excluir) return;
+    for (let padre = objeto; padre; padre = padre.parent)
+      if (!padre.visible) return;
+    const posiciones = objeto.geometry.attributes.position;
+    for (let i = 0; i < posiciones.count; i++)
+      puntos.push(
+        new THREE.Vector3()
+          .fromBufferAttribute(posiciones, i)
+          .applyMatrix4(objeto.matrixWorld)
+          .applyMatrix4(inversa),
+      );
+  });
+  if (!puntos.length) return null;
+  puntos.sort((a, b) => b.y - a.y);
+  const cantidad = Math.max(3, Math.floor(puntos.length * 0.003));
+  return puntos
+    .slice(0, cantidad)
+    .reduce((suma, p) => suma.add(p), new THREE.Vector3())
+    .multiplyScalar(1 / cantidad);
+}
+
 // Carga (o reutiliza) el modelo de una caña y prepara su anzuelo integrado.
 function obtenerModeloCaña(tipo, alTerminar) {
   const config = MODELOS_CAÑA[tipo];
@@ -362,7 +391,9 @@ function obtenerModeloCaña(tipo, alTerminar) {
         modelo.renderOrder = 20;
         contenedor.add(modelo);
 
+        // Esta caña es más larga que la básica: el anzuelo se cuelga de SU punta.
         const basica = cacheModelosCaña.basica;
+        const puntaPropia = _calcularPuntaVisual(contenedor, null);
         if (basica && basica.mallaHook && basica.matrizHookEnCaña) {
           mallaHook = new THREE.Mesh(
             basica.mallaHook.geometry,
@@ -374,12 +405,15 @@ function obtenerModeloCaña(tipo, alTerminar) {
             mallaHook.quaternion,
             mallaHook.scale,
           );
+          if (puntaPropia) mallaHook.position.copy(puntaPropia);
           contenedor.add(mallaHook);
         }
 
-        const punta = basica
-          ? basica.punta.clone()
-          : new THREE.Vector3(-1.01, 3.3, -4.35);
+        const punta =
+          puntaPropia ||
+          (basica
+            ? basica.punta.clone()
+            : new THREE.Vector3(-1.01, 3.3, -4.35));
 
         cacheModelosCaña[tipo] = {
           modelo: contenedor,
