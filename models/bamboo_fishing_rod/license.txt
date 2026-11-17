@@ -1,0 +1,11 @@
+Model Information:
+* title:	Bamboo Fishing Rod
+* source:	https://sketchfab.com/3d-models/bamboo-fishing-rod-43d7c0540bb3468f837b23543882434e
+* author:	Total_Marginal (https://sketchfab.com/Total_Marginal)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Bamboo Fishing Rod" (https://sketchfab.com/3d-models/bamboo-fishing-rod-43d7c0540bb3468f837b23543882434e) by Total_Marginal (https://sketchfab.com/Total_Marginal) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
