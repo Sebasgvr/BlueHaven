@@ -201,7 +201,11 @@ document.addEventListener(
         document.querySelector("dialog[open]").close();
       else if (window.chatAbierto) cerrarChat();
       else if (ENCICLOPEDIA.abierta) cerrarEnciclopedia();
-      else {
+      else if (typeof sistemaCaptura !== "undefined" && sistemaCaptura.modoPractica) {
+        const r = sistemaCaptura.pez?.rareza;
+        sistemaCaptura.cancelar();
+        window.TutorialJuego?.alTerminarPractica(r, "cancelado");
+      } else {
         cancelarPesca();
         abrirAjustes();
       }

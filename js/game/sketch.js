@@ -60,6 +60,7 @@ async function iniciarJuego() {
   reiniciarEstadoEnMemoria();
   cargarProgresoLocal();
   if (!window.modoInvitado) await cargarDatosUsuario();
+  window.TutorialJuego?.evaluarInicio();
   loop();
 }
 
@@ -171,6 +172,7 @@ function draw() {
 
   // La bienvenida siempre se dibuja encima de todo
   dibujarBienvenida();
+  window.TutorialJuego?.actualizar();
   actualizarControlesTactiles();
 }
 
@@ -407,6 +409,16 @@ function keyPressed() {
     ejecutarAccionPesca();
     return false;
   }
+  if (key === "h" || key === "H") {
+    if (
+      sistemaCaptura.estado === "inactivo" &&
+      estadoLanzamiento === "reposo" &&
+      menuTienda === "cerrado"
+    ) {
+      window.TutorialJuego?.abrirModal("general");
+    }
+    return false;
+  }
 
   if (keyCode === 32) {
     if (sistemaCaptura.estado === "inactivo") {
@@ -481,6 +493,11 @@ function controlarClicEscena(evento) {
     return;
   }
 
+  if (sistemaCaptura.estado !== "inactivo") {
+    sistemaCaptura.presionarBoton({ x: evento.clientX, y: evento.clientY });
+    return;
+  }
+
   // Si el mouse no estaba bloqueado, este clic es para bloquearlo —
   // no cuenta como acción de juego. Se ignora el siguiente evento también
   // porque algunos navegadores disparan el pointerdown antes de confirmar el lock.
@@ -494,11 +511,6 @@ function controlarClicEscena(evento) {
   // activar acciones de pesca/minijuego con el mismo clic que bloqueó.
   if (_ignorarSiguienteClic) {
     _ignorarSiguienteClic = false;
-    return;
-  }
-
-  if (sistemaCaptura.estado !== "inactivo") {
-    sistemaCaptura.presionarBoton({ x: evento.clientX, y: evento.clientY });
     return;
   }
 }

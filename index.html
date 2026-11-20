@@ -125,8 +125,11 @@
     </div>
 
     <div id="barra-juego" hidden>
-      <button id="boton-ajustes" type="button">⚙ Ajustes</button
-      ><span id="estado-guardado" aria-live="polite"></span>
+      <div class="barra-botones">
+        <button id="boton-ajustes" type="button">⚙ Ajustes</button>
+        <button id="boton-tutorial" type="button">📖 Tutorial</button>
+      </div>
+      <span id="estado-guardado" aria-live="polite"></span>
     </div>
     <dialog id="ajustes">
       <form method="dialog">
@@ -158,9 +161,12 @@
         <p id="detalle-rendimiento"></p>
         <p>
           WASD: moverte · Mouse: mirar · F: pescar · I: mochila · L: especies ·
-          Q: guía · Esc: ajustes · P: liberar/capturar cursor
+          Q: guía · H: tutoriales · Esc: ajustes · P: liberar/capturar cursor
         </p>
-        <button id="cerrar-ajustes">Volver al juego</button
+        <button id="abrir-tutorial-ajustes" type="button">
+          📖 Tutorial y Minijuegos
+        </button
+        ><button id="cerrar-ajustes">Volver al juego</button
         ><button id="boton-logout" type="button" style="display: none">
           Cerrar sesión
         </button>
@@ -232,6 +238,7 @@
     <script src="js/ui/inventario.js"></script>
     <script src="js/ui/enciclopedia.js"></script>
     <script src="js/ui/bienvenida.js"></script>
+    <script src="js/ui/tutorial.js"></script>
     <script src="js/ui/chatbot.js"></script>
     <script src="js/game/entorno.js"></script>
     <script src="js/game/terreno.js"></script>
