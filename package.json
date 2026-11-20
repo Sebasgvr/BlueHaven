@@ -1,0 +1,27 @@
+{
+  "name": "blue-haven",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Juego educativo de pesca 3D",
+  "scripts": {
+    "db:seed": "node scripts/generar-semilla.cjs",
+    "build:vendor": "esbuild scripts/supabase-entry.js --bundle --minify --format=iife --global-name=SupabaseSDK --outfile=libraries/supabase.min.js --legal-comments=linked",
+    "optimize:shop": "node scripts/optimizar-tienda.mjs",
+    "format": "prettier --write js scripts css index.html jsconfig.json",
+    "format:check": "prettier --check js scripts css index.html jsconfig.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "esbuild": "^0.28.2",
+    "prettier": "^3.10.1",
+    "sharp": "^0.35.5"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.0"
+  }
+}
