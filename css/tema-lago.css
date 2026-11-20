@@ -62,7 +62,7 @@ body :is(button, input, select, textarea, [role="button"]):focus-visible {
 body button:active:not(:disabled) {
   transform: translateY(2px);
 }
-body :is(#ajustes, #ranking, #libro-movil, #comercio, #dialogo-enciclopedia) {
+body :is(#ajustes, #ranking, #libro-movil, #comercio, #dialogo-enciclopedia, #dialogo-tutorial) {
   color: var(--bh-texto);
   border: 2px solid #83b49c;
   border-radius: 14px;
@@ -72,7 +72,7 @@ body :is(#ajustes, #ranking, #libro-movil, #comercio, #dialogo-enciclopedia) {
     inset 0 1px #d2edce26;
   font: 14px/1.55 var(--bh-fuente);
 }
-body :is(#ajustes, #ranking, #libro-movil, #comercio, #dialogo-enciclopedia) * {
+body :is(#ajustes, #ranking, #libro-movil, #comercio, #dialogo-enciclopedia, #dialogo-tutorial) * {
   font-family: var(--bh-fuente);
 }
 body
@@ -81,12 +81,13 @@ body
     #ranking,
     #libro-movil,
     #comercio,
-    #dialogo-enciclopedia
+    #dialogo-enciclopedia,
+    #dialogo-tutorial
   )::backdrop {
   background: #061c27c9;
   backdrop-filter: none;
 }
-body :is(#ajustes, #ranking, #libro-movil, #comercio, #dialogo-enciclopedia) h2,
+body :is(#ajustes, #ranking, #libro-movil, #comercio, #dialogo-enciclopedia, #dialogo-tutorial) h2,
 body #cartel-ranking h2 {
   font-family: var(--bh-pixel);
   font-size: 14px;
@@ -97,14 +98,14 @@ body #cartel-ranking h2 {
   overflow-wrap: anywhere;
 }
 body
-  :is(#ajustes, #ranking, #libro-movil, #comercio, #dialogo-enciclopedia)
+  :is(#ajustes, #ranking, #libro-movil, #comercio, #dialogo-enciclopedia, #dialogo-tutorial)
   small {
   color: var(--bh-suave);
 }
 body
-  :is(#ajustes, #ranking, #libro-movil, #comercio, #dialogo-enciclopedia)
+  :is(#ajustes, #ranking, #libro-movil, #comercio, #dialogo-enciclopedia, #dialogo-tutorial)
   button,
-body :is(#boton-ajustes),
+body :is(#boton-ajustes, #boton-tutorial),
 body #controles-tactiles button,
 body #captura-continuar {
   min-height: 44px;
@@ -556,5 +557,334 @@ body #chat-input {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Barra superior y Tutorial guiado / Manual de minijuegos */
+#barra-juego .barra-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+#boton-tutorial {
+  padding: 10px 14px;
+  cursor: pointer;
+}
+body:not(.jugando) #tutorial-hud,
+#tutorial-hud[hidden] {
+  display: none !important;
+}
+#tutorial-hud {
+  position: fixed;
+  left: 14px;
+  top: 66px;
+  z-index: 22;
+  width: min(350px, calc(100vw - 28px));
+  background: linear-gradient(145deg, #163b45f2, #0c2635f2);
+  border: 2px solid var(--bh-borde);
+  border-radius: 12px;
+  box-shadow:
+    0 10px 28px #04131b99,
+    inset 0 1px #f5e8ca22;
+  padding: 12px 14px;
+  color: var(--bh-texto);
+  font: 13px/1.45 var(--bh-fuente);
+}
+#tutorial-hud .tut-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+#tutorial-hud .tut-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--bh-oro);
+  margin-bottom: 2px;
+}
+#tutorial-hud h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bh-crema);
+}
+#tutorial-hud .tut-win-btns {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+#tutorial-hud .tut-win-btns button {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid #84b697;
+  background: #234d53;
+  color: var(--bh-crema);
+  cursor: pointer;
+  font-weight: 700;
+}
+#tutorial-hud .tut-barra-fondo {
+  height: 5px;
+  background: #081c26;
+  border-radius: 99px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+#tutorial-hud .tut-barra-progreso {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #e9c47a);
+  transition: width 0.25s ease;
+}
+#tutorial-hud .tut-desc {
+  margin: 0 0 8px;
+  color: #e2e8f0;
+  font-size: 12.5px;
+}
+#tutorial-hud .tut-obj {
+  margin: 0 0 10px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: #09222e;
+  border-left: 3px solid var(--bh-oro);
+  color: #fde68a;
+  font-size: 12px;
+  font-weight: 600;
+}
+#tutorial-hud .tut-obj.listo {
+  border-left-color: #4ade80;
+  color: #86efac;
+  background: #0a2e25;
+}
+#tutorial-hud .tut-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#tutorial-hud .tut-acciones button {
+  flex: 1 1 auto;
+  min-height: 32px;
+  padding: 5px 8px;
+  font-size: 12px;
+  border-radius: 7px;
+  border: 1px solid #7ca88b;
+  background: #234d53;
+  color: var(--bh-crema);
+  cursor: pointer;
+  font-weight: 600;
+}
+#tutorial-hud .tut-acciones button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.tut-btn-primario {
+  background: linear-gradient(#f1d391, #d5aa61) !important;
+  color: #202b26 !important;
+  border-color: #f5d899 !important;
+  border-bottom-color: #8b633e !important;
+  font-weight: 750 !important;
+}
+
+/* Modal de Tutorial y Minijuegos */
+#dialogo-tutorial {
+  width: min(820px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  padding: 0;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+}
+#dialogo-tutorial[open] {
+  display: flex;
+}
+#dialogo-tutorial .tut-modal-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: #0b2430;
+  border-bottom: 1px solid #83b49c44;
+}
+#dialogo-tutorial .tut-modal-cabecera h2 {
+  margin: 4px 0 0;
+}
+#dialogo-tutorial #tut-modal-cerrar-x {
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0 10px;
+  font-size: 20px;
+  line-height: 1;
+}
+.tut-alerta-encuentro {
+  margin: 12px 20px 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #3b2d14;
+  border: 1px solid #e9c47a;
+  color: #fef08a;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.tut-modal-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #83b49c33;
+  background: #0f2c39;
+}
+.tut-modal-tabs button {
+  min-height: 36px !important;
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+.tut-modal-tabs button[aria-pressed="true"] {
+  background: linear-gradient(#eed190, #d0aa66) !important;
+  color: #202b26 !important;
+  border-color: #ffe0a0 !important;
+}
+.tut-modal-contenido {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.tut-general-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+.tut-card {
+  background: #0b232e;
+  border: 1px solid #7ca88b44;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.tut-card h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: var(--bh-oro);
+}
+.tut-card ul,
+.tut-card ol {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  color: #e2e8f0;
+}
+.tut-general-acciones {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+.tut-general-acciones button {
+  padding: 10px 18px;
+  cursor: pointer;
+}
+.tut-mini-layout {
+  display: grid;
+  grid-template-columns: 315px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.tut-mini-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  background: #091d27;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #7ca88b44;
+}
+.tut-mini-canvas {
+  width: 100%;
+  max-width: 310px;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid #334155;
+}
+.tut-btn-practicar {
+  width: 100%;
+  cursor: pointer;
+}
+.tut-mini-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tut-mini-especies {
+  margin: 0;
+  font-size: 15px;
+  color: var(--bh-oro);
+}
+.tut-mini-bloque {
+  margin: 0;
+  font-size: 13.5px;
+  color: #e2e8f0;
+}
+.tut-mini-info h4 {
+  margin: 6px 0 2px;
+  font-size: 13.5px;
+  color: var(--bh-suave);
+}
+.tut-mini-mecanicas {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 5px;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+.tut-modal-pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 20px;
+  background: #0b2430;
+  border-top: 1px solid #83b49c44;
+}
+.tut-check-avisos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--bh-suave);
+  cursor: pointer;
+}
+.tut-modal-pie-btns button {
+  padding: 8px 18px;
+  cursor: pointer;
+}
+body.tactil #tutorial-hud {
+  top: 104px;
+  left: 10px;
+  right: 10px;
+  width: auto;
+  max-width: 360px;
+}
+@media (max-width: 720px) {
+  .tut-mini-layout {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  #boton-tutorial {
+    min-height: 36px;
+    padding: 8px 9px !important;
+    font-size: 11px !important;
+  }
+  #dialogo-tutorial .tut-modal-cabecera,
+  .tut-modal-tabs,
+  .tut-modal-contenido,
+  .tut-modal-pie {
+    padding: 10px 12px;
   }
 }

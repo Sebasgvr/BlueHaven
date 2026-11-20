@@ -37,9 +37,34 @@ class SistemaCaptura {
     this.progresoLanzamiento = 0;
 
     this.minijuego = null;
+    this.modoPractica = false;
+    this.pausadoPorTutorial = false;
+  }
+
+  iniciarPractica(rareza = 1) {
+    const plantilla =
+      PECES_CAPTURA.find((p) => Number(p.rareza) === Number(rareza)) ||
+      PECES_CAPTURA[0];
+    this.modoPractica = true;
+    this.pausadoPorTutorial = false;
+    this.pez = Object.assign({}, plantilla, {
+      calidadId: "comun",
+      multiplicadorCalidad: 1,
+      escalaDificultad: 1,
+      capturaRiesgo: false,
+      precio: 0,
+      mecanicasActivas: [],
+    });
+    this.riesgo = false;
+    this.screenshake = 0;
+    this.tiempoAnim = 0;
+    this.progresoLanzamiento = 1;
+    this._crearMinijuego();
   }
 
   iniciar(pez) {
+    this.modoPractica = false;
+    this.pausadoPorTutorial = false;
     // Clonamos la plantilla para no fijar la calidad de la especie.
     const calidad = rollCalidad();
     this.pez = Object.assign({}, pez, {
@@ -117,9 +142,12 @@ class SistemaCaptura {
   cancelar() {
     this.estado = "inactivo";
     this.minijuego = null;
+    this.modoPractica = false;
+    this.pausadoPorTutorial = false;
   }
 
   actualizar() {
+    if (this.pausadoPorTutorial) return;
     const dt = Math.min(deltaTime / 1000, 0.05);
     this.tiempoAnim += dt;
     if (this.estado !== "inactivo") {
@@ -206,7 +234,12 @@ class SistemaCaptura {
           if (this.minijuego.resultado) {
             this.estado = this.minijuego.resultado;
             if (this.estado !== "capturado") window.AudioJuego?.efecto("fallo");
-            this.timerFase = this.estado === "pez_escapado" ? 2.0 : 2.5;
+            else if (this.modoPractica) window.AudioJuego?.efecto("captura");
+            this.timerFase = this.modoPractica
+              ? 1.6
+              : this.estado === "pez_escapado"
+                ? 2.0
+                : 2.5;
             this.minijuego = null;
           }
         } else {
@@ -215,6 +248,19 @@ class SistemaCaptura {
         break;
 
       case "capturado": {
+        if (this.modoPractica) {
+          this.timerFase -= dt;
+          if (this.timerFase <= 0) {
+            const rarezaPractica = this.pez?.rareza;
+            this.modoPractica = false;
+            this.estado = "inactivo";
+            window.TutorialJuego?.alTerminarPractica(
+              rarezaPractica,
+              "capturado",
+            );
+          }
+          break;
+        }
         // Se guarda una sola vez y la ficha permanece hasta que el jugador la cierre.
         const ejemplar = { ...this.pez, precio: calcularPrecio(this.pez) };
         this.estado = "inactivo";
@@ -225,7 +271,17 @@ class SistemaCaptura {
       case "pez_escapado":
         this.timerFase -= dt;
         if (this.timerFase <= 0) {
+          const eraPractica = this.modoPractica;
+          const resPractica = this.estado;
+          const rarezaPractica = this.pez?.rareza;
+          this.modoPractica = false;
           this.estado = "inactivo";
+          if (eraPractica) {
+            window.TutorialJuego?.alTerminarPractica(
+              rarezaPractica,
+              resPractica,
+            );
+          }
         }
         break;
     }
@@ -243,6 +299,9 @@ class SistemaCaptura {
       MINIJUEGOS_POR_RAREZA[this.pez.rareza] || MinijuegoBrújula;
     this.minijuego = enEspacioPesca(() => new ClaseMinijuego(this.pez));
     this.estado = "lucha";
+    if (!this.modoPractica) {
+      window.TutorialJuego?.alIniciarMinijuego(this.pez, this);
+    }
   }
 
   dibujar() {
@@ -256,6 +315,16 @@ class SistemaCaptura {
 
     if (this.estado === "lucha") {
       this.minijuego.dibujar();
+      if (this.modoPractica) {
+        fill(15, 118, 110, 220);
+        noStroke();
+        rect(width / 2 - 120, 8, 240, 24, 12);
+        fill(245, 232, 202);
+        textAlign(CENTER, CENTER);
+        textSize(11);
+        text("MODO PRÁCTICA · [ESC] Salir", width / 2, 20);
+        textAlign(LEFT, BASELINE);
+      }
     } else if (this.estado === "decidiendo_riesgo") {
       pop();
       this._dibujarDecision();
@@ -500,7 +569,7 @@ class SistemaCaptura {
     let cTxt = color(255);
 
     if (this.estado === "capturado") {
-      msg = "¡CAPTURADO!";
+      msg = this.modoPractica ? "¡PRÁCTICA SUPERADA!" : "¡CAPTURADO!";
       cFondo = color(
         calidad.color[0] * 0.28,
         calidad.color[1] * 0.28,
@@ -559,8 +628,14 @@ class SistemaCaptura {
       dibujarEtiquetaCalidad(calidad, cx, cy + 2, 15, "centro");
 
       fill(255, 230, 150);
-      textSize(20);
-      text("$" + precioDe(this.pez), cx, cy + 38);
+      textSize(this.modoPractica ? 14 : 20);
+      text(
+        this.modoPractica
+          ? "Minijuego completado sin riesgo ni consumo"
+          : "$" + precioDe(this.pez),
+        cx,
+        cy + 38,
+      );
 
       textSize(12);
       if (this.pez.capturaRiesgo) {

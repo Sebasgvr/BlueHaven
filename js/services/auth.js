@@ -81,8 +81,10 @@ formRegistro.addEventListener("submit", async (e) => {
       document.getElementById("reg-email").value.trim(),
       document.getElementById("reg-password").value,
     );
-    if (datos.session) await entrarConSesion(datos.session, errorEl);
-    else {
+    if (datos.session) {
+      window.recienRegistrado = true;
+      await entrarConSesion(datos.session, errorEl);
+    } else {
       mostrarLogin();
       document.getElementById("login-usuario").value =
         document.getElementById("reg-email").value;
@@ -130,6 +132,7 @@ function volverAlAcceso(mensaje = "") {
   if (typeof noLoop === "function" && window.juegoPreparado) noLoop();
   if (document.pointerLockElement) document.exitPointerLock();
   if (typeof cerrarChat === "function") cerrarChat();
+  window.TutorialJuego?.ocultar();
   document.getElementById("ajustes").close();
   document.getElementById("tarjeta-captura")?.close();
   if (typeof dialogoComercio !== "undefined") dialogoComercio.close();

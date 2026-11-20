@@ -319,7 +319,7 @@ function obtenerModeloCaña(tipo, alTerminar) {
   // Para la caña de bambú nos aseguramos de tener cargada la básica primero,
   // así reutilizamos el mismo anzuelo colgante en la punta.
   if (tipo !== "basica" && !cacheModelosCaña.basica) {
-    obtenerModeloCaña("basica", () => obtenerModeloCaña("bambu", alTerminar));
+    obtenerModeloCaña("basica", () => obtenerModeloCaña(tipo, alTerminar));
     return;
   }
 

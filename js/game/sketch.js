@@ -59,6 +59,7 @@ async function iniciarJuego() {
   reiniciarEstadoEnMemoria();
   cargarProgresoLocal();
   if (!window.modoInvitado) await cargarDatosUsuario();
+  window.TutorialJuego?.evaluarInicio();
   loop();
 }
 
@@ -166,6 +167,7 @@ function draw() {
 
   // La bienvenida siempre se dibuja encima de todo
   dibujarBienvenida();
+  window.TutorialJuego?.actualizar();
   actualizarControlesTactiles();
 }
 
@@ -360,6 +362,16 @@ function keyPressed() {
   }
   if (key === "f" || key === "F") {
     ejecutarAccionPesca();
+    return false;
+  }
+  if (key === "h" || key === "H") {
+    if (
+      sistemaCaptura.estado === "inactivo" &&
+      estadoLanzamiento === "reposo" &&
+      menuTienda === "cerrado"
+    ) {
+      window.TutorialJuego?.abrirModal("general");
+    }
     return false;
   }
 
